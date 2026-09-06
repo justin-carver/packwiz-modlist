@@ -36,7 +36,7 @@ fn run() -> Result<(), Error> {
   // Sodium: AANobbMI (MR)
   // JEI: 238222 (CF)
   // let parser = TextParser::new("mr:AANobbMI:cache_id_here\ncf:238222:cache_id_here")?;
-  let parser = PackwizParser::load_from(r"../create-prime/mods")?;
+  let parser = PackwizParser::load_from(env!("MODPACK_TOML_PATH"))?;
   let app = App::new(cache, parser);
 
   if let Err(err) = app.run() {
