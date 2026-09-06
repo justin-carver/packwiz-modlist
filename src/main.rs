@@ -4,8 +4,8 @@ use crate::app::App;
 use crate::cache::Cache;
 use crate::error::Error;
 use crate::parser::packwiz::PackwizParser;
-use crate::parser::Parser;
 use crate::parser::text::TextParser;
+use crate::parser::Parser;
 use crate::request::curseforge::get_curseforge_mods;
 use crate::request::modrinth::get_modrinth_projects;
 use crate::request::Mod;
@@ -32,14 +32,13 @@ fn setup_logging() {
 }
 
 fn run() -> Result<(), Error> {
-
   let cache = Cache::load(".packwiz-modlist.cache.json")?;
   // Sodium: AANobbMI (MR)
   // JEI: 238222 (CF)
   // let parser = TextParser::new("mr:AANobbMI:cache_id_here\ncf:238222:cache_id_here")?;
-  let parser = PackwizParser::load_from(r"C:\Users\ricky\dev\modpacks\OptiCraft\mods")?;
+  let parser = PackwizParser::load_from(r"../create-prime/mods")?;
   let app = App::new(cache, parser);
-  
+
   if let Err(err) = app.run() {
     log::error!("{err}");
   }
