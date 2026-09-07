@@ -1,4 +1,5 @@
 max_width = 100
 
 # Tab space of 4 is way too big, 2 is what it should be
+# (Hmmmm are you sure abut that...) - @justin-carver
 tab_spaces = 2

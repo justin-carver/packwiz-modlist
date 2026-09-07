@@ -1,7 +1,7 @@
 use crate::cache::CacheId;
-use crate::parser::{ParsedCurseForgeId, ParsedModrinthId};
+use crate::parser::{ParsedCurseForgeId, ParsedModrinthId, Parser};
 use crate::request::{CurseForgeId, ModrinthId};
-use crate::{get_modrinth_projects, Cache, Error, Mod, Parser, get_curseforge_mods};
+use crate::{get_curseforge_mods, get_modrinth_projects, Cache, Error, Mod};
 use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
 
@@ -67,9 +67,7 @@ impl App {
     }
 
     if !cf_mods_ids.is_empty() {
-      let cf_mods = get_curseforge_mods(cf_mods_ids)?
-        .into_iter()
-        .map(Mod::from);
+      let cf_mods = get_curseforge_mods(cf_mods_ids)?.into_iter().map(Mod::from);
 
       for m in cf_mods {
         let id = cf_id_map.get(&m.id).cloned().unwrap();
