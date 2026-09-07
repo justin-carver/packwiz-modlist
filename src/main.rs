@@ -22,6 +22,8 @@ mod request;
 
 fn setup_logging() {
   simple_logger::SimpleLogger::new()
+    // TODO: This needs to resolve with verbosity and quiet flags
+    .with_level(log::LevelFilter::Info)
     .without_timestamps()
     .env()
     .init()
@@ -57,16 +59,16 @@ fn main() {
   let cli = args::Cli::parse();
   let verbosity = args::Verbosity::resolve(cli.verbose, cli.quiet);
 
-  // Result of the most recently run command
-  let result = match cli.command {
-    Command::Config { path } => args::config(path),
-    Command::About => args::about(),
-  };
-
   setup_logging();
 
-  // Entry point
-  if let Err(err) = run() {
+  // Result of the most recently run command
+  let result = match cli.command {
+    Some(Command::Config { path }) => args::config(path),
+    Some(Command::About) => args::about(),
+    None => run().map_err(|err| err.to_string()),
+  };
+
+  if let Err(err) = result {
     log::error!("{err}");
   }
 }

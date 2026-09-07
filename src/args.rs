@@ -27,7 +27,8 @@ const HELP_STYLES: Styles = Styles::styled()
   about = "Creates a modlist from packwiz",
   long_about = "Utilizes the Modrinth and Curseforge API to output modlist information created via the packwiz CLI tool.",
   propagate_version = true,
-  arg_required_else_help = true
+  // DEBUG TESTING
+  // arg_required_else_help = true
 )]
 
 pub(crate) struct Cli {
@@ -40,7 +41,7 @@ pub(crate) struct Cli {
   pub(crate) quiet: bool,
 
   #[command(subcommand)]
-  pub(crate) command: Command,
+  pub(crate) command: Option<Command>,
 }
 
 #[derive(Debug, Subcommand)]
