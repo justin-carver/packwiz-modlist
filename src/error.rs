@@ -1,19 +1,22 @@
+use colored::Colorize;
+use minreq::Response;
 use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
-use minreq::Response;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
 #[error("{}")]
 pub enum Error {
-  #[error("{1} (\"{0}\")")]
-  FileIo(PathBuf, std::io::Error),
+  #[error("{2} failed on \"{0}\": {1}")]
+  FileIo(PathBuf, std::io::Error, &'static str),
   #[error("{0}")]
   Io(#[from] std::io::Error),
   #[error("{1}: \n{0}")]
   Json(String, serde_json::Error),
   #[error("{1}: \n{0}")]
   Toml(String, toml::de::Error),
+  #[error("failed to parse \"{0}\": {1}")]
+  TomlFile(PathBuf, toml::de::Error),
   #[error("{0}: {1}")]
   Response(i32, String),
   #[error("{0}")]
@@ -38,7 +41,8 @@ impl From<&str> for Error {
 
 impl From<minreq::Response> for Error {
   fn from(req: minreq::Response) -> Self {
-    Self::Response(req.status_code, req.reason_phrase)
+    let message = format!("{}: ({})", req.reason_phrase, req.url.bright_cyan());
+    Self::Response(req.status_code, message)
   }
 }
 
@@ -84,8 +88,23 @@ impl From<(&str, toml::de::Error)> for Error {
   }
 }
 
-impl From<(PathBuf, std::io::Error)> for Error {
-  fn from((path, err): (PathBuf, std::io::Error)) -> Self {
-    Self::FileIo(path, err)
+impl From<(PathBuf, std::io::Error, &'static str)> for Error {
+  fn from((path, err, op): (PathBuf, std::io::Error, &'static str)) -> Self {
+    Self::FileIo(path, err, op)
+  }
+}
+
+pub trait IoContext<T> {
+  fn path_ctx<P>(self, path: P, op: &'static str) -> Result<T, Error>
+  where
+    P: Into<PathBuf>;
+}
+
+impl<T> IoContext<T> for Result<T, std::io::Error> {
+  fn path_ctx<P>(self, path: P, op: &'static str) -> Result<T, Error>
+  where
+    P: Into<PathBuf>,
+  {
+    self.map_err(|err| Error::FileIo(path.into(), err, op))
   }
 }

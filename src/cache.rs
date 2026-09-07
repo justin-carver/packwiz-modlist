@@ -1,4 +1,4 @@
-use crate::error::Error;
+use crate::error::{Error, IoContext};
 use crate::Mod;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -52,20 +52,37 @@ impl Cache {
     T: Into<PathBuf>,
   {
     let file = file.into();
+    let resolved = crate::util::resolve_for_display(&file);
+
+    log::debug!("loading cache from \"{}\"", resolved.display());
 
     match OpenOptions::new().read(true).open(&file) {
-      Ok(reader) => Ok(Self {
-        file,
-        is_dirty: false,
-        data: serde_json::from_reader(reader)?,
-      }),
-      Err(err) => match err.kind() {
-        ErrorKind::NotFound => Ok(Self {
+      Ok(reader) => {
+        let data: CacheData = serde_json::from_reader(reader)?;
+        log::debug!(
+          "loaded {} cached mod(s) from \"{}\"",
+          data.len(),
+          resolved.display()
+        );
+        Ok(Self {
           file,
           is_dirty: false,
-          data: Default::default(),
-        }),
-        _ => Err(err)?,
+          data,
+        })
+      }
+      Err(err) => match err.kind() {
+        ErrorKind::NotFound => {
+          log::debug!(
+            "no cache at \"{}\", starting with an empty cache",
+            resolved.display()
+          );
+          Ok(Self {
+            file,
+            is_dirty: false,
+            data: Default::default(),
+          })
+        }
+        _ => Err(Error::FileIo(resolved, err, "open cache file")),
       },
     }
   }
@@ -111,12 +128,24 @@ impl Cache {
 
   pub fn save(&self) -> Result<(), Error> {
     if self.is_dirty {
+      let resolved = crate::util::resolve_for_display(&self.file);
+
       let file = OpenOptions::new()
         .write(true)
         .create(true)
-        .open(&self.file)?;
+        .truncate(true)
+        .open(&self.file)
+        .path_ctx(&resolved, "write cache file")?;
 
       serde_json::to_writer(file, &self.data)?;
+
+      log::debug!(
+        "wrote {} cached mod(s) to \"{}\"",
+        self.data.len(),
+        resolved.display()
+      );
+    } else {
+      log::debug!("cache unchanged, nothing to write");
     }
 
     Ok(())

@@ -1,6 +1,6 @@
+use crate::error::IoContext;
 use crate::parser::{ParsedCurseForgeId, ParsedModrinthId, Parser};
 use crate::Error;
-use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::fs::OpenOptions;
 use std::io::Read;
@@ -47,15 +47,46 @@ impl PackwizParser {
     T: Into<PathBuf>,
   {
     let directory = directory.into();
-    let parsed_mods = directory
-      .read_dir()?
-      .map_ok(|entry| entry)
-      .filter_ok(|entry| entry.file_name().to_string_lossy().ends_with(".pw.toml"))
-      .map_ok(|entry| std::fs::read_to_string(entry.path()))
-      .flatten()
-      .map_ok(|data| toml::from_str::<PackwizMod>(&data))
-      .flatten()
-      .collect::<Result<Vec<_>, _>>()?;
+
+    let resolved = crate::util::resolve_for_display(&directory);
+
+    log::debug!("scanning for *.pw.toml in \"{}\"", resolved.display());
+
+    let entries = directory.read_dir().path_ctx(&resolved, "read directory")?;
+    let mut parsed_mods = Vec::new();
+    let mut skipped = 0usize;
+
+    for entry in entries {
+      let entry = entry.path_ctx(&resolved, "read directory entry")?;
+      let path = entry.path();
+
+      if !entry.file_name().to_string_lossy().ends_with(".pw.toml") {
+        skipped += 1;
+        log::trace!("skipping non-pw.toml entry \"{}\"", path.display());
+        continue;
+      }
+
+      let data = std::fs::read_to_string(&path).path_ctx(&path, "read file")?;
+      let parsed =
+        toml::from_str::<PackwizMod>(&data).map_err(|err| Error::TomlFile(path.clone(), err))?;
+
+      log::debug!("parsed \"{}\" as \"{}\"", path.display(), parsed.name);
+      parsed_mods.push(parsed);
+    }
+
+    log::info!(
+      "found {} mod(s) in \"{}\" ({} entries skipped)",
+      parsed_mods.len(),
+      resolved.display(),
+      skipped
+    );
+
+    if parsed_mods.is_empty() {
+      log::warn!(
+        "no *.pw.toml files found in \"{}\" -- is MODPACK_TOML_PATH pointing at your packwiz mods directory?",
+        resolved.display()
+      );
+    }
 
     let modrinth_mods = parsed_mods
       .clone()

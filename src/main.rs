@@ -19,11 +19,17 @@ mod consts;
 mod error;
 mod parser;
 mod request;
+mod util;
 
-fn setup_logging() {
+fn setup_logging(verbosity: args::Verbosity) {
+  let level = verbosity.to_level_filter();
+
   simple_logger::SimpleLogger::new()
-    // TODO: This needs to resolve with verbosity and quiet flags
-    .with_level(log::LevelFilter::Info)
+    // Dependencies (rustls) dump a wall of TLS handshake traffic at
+    // debug/trace, which buries output. Cap them at warn and let the
+    // flags raise only this crate's level.
+    .with_level(log::LevelFilter::Warn.min(level))
+    .with_module_level(env!("CARGO_CRATE_NAME"), level)
     .without_timestamps()
     .env()
     .init()
@@ -35,12 +41,25 @@ fn setup_logging() {
   colored::control::set_virtual_terminal(true).unwrap();
 }
 
+/// Baked in at *build* time by build.rs from `.env`. Editing `.env` has no
+/// effect until the crate is rebuilt, and a relative value here resolves
+/// against the current working directory at *run* time -- not the crate root.
+const MODPACK_TOML_PATH: &str = env!("MODPACK_TOML_PATH");
+
+const CACHE_PATH: &str = ".packwiz-modlist.cache.json";
+
 fn run() -> Result<(), Error> {
-  let cache = Cache::load(".packwiz-modlist.cache.json")?;
+  match std::env::current_dir() {
+    Ok(cwd) => log::debug!("working directory: \"{}\"", cwd.display()),
+    Err(err) => log::debug!("could not determine working directory: {err}"),
+  }
+  log::debug!("MODPACK_TOML_PATH (compiled in): \"{MODPACK_TOML_PATH}\"");
+
+  let cache = Cache::load(CACHE_PATH)?;
   // Sodium: AANobbMI (MR)
   // JEI: 238222 (CF)
   // let parser = TextParser::new("mr:AANobbMI:cache_id_here\ncf:238222:cache_id_here")?;
-  let pw_parser = PackwizParser::load_from(env!("MODPACK_TOML_PATH"))?;
+  let pw_parser = PackwizParser::load_from(MODPACK_TOML_PATH)?;
   let app = App::new(cache, pw_parser);
 
   if let Err(err) = app.run() {
@@ -59,7 +78,7 @@ fn main() {
   let cli = args::Cli::parse();
   let verbosity = args::Verbosity::resolve(cli.verbose, cli.quiet);
 
-  setup_logging();
+  setup_logging(verbosity);
 
   // Result of the most recently run command
   let result = match cli.command {

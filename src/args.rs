@@ -73,6 +73,16 @@ impl Verbosity {
       (_, _) => Verbosity::Debug,
     }
   }
+
+  /// Converts the verbosity level to a log::LevelFilter for use with the log crate.
+  pub fn to_level_filter(self) -> log::LevelFilter {
+    match self {
+      Verbosity::Quiet => log::LevelFilter::Error,
+      Verbosity::Normal => log::LevelFilter::Warn,
+      Verbosity::Info => log::LevelFilter::Info,
+      Verbosity::Debug => log::LevelFilter::Trace,
+    }
+  }
 }
 
 /**
