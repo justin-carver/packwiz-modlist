@@ -35,10 +35,7 @@ pub fn get_modrinth(endpoint: &str) -> Request {
 
 pub fn get_modrinth_projects(projects: Vec<ModrinthId>) -> Result<Projects, Error> {
   let json = serde_json::to_string(&projects)?;
-  let response = get_modrinth("/projects")
-    .with_param("ids", json)
-    .send()
-    .unwrap();
+  let response = get_modrinth("/projects").with_param("ids", json).send()?;
 
   match response.status_code {
     200 => response
@@ -47,6 +44,14 @@ pub fn get_modrinth_projects(projects: Vec<ModrinthId>) -> Result<Projects, Erro
         Ok(json) => (json, err).into(),
         Err(err) => err.into(),
       }),
-    _ => Err(response.into()),
+    _ => {
+      log::debug!(
+        "Modrinth returned {} {} with headers:\n{}",
+        response.status_code,
+        response.reason_phrase,
+        crate::request::describe_headers(&response)
+      );
+      Err(response.into())
+    }
   }
 }

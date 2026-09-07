@@ -20,6 +20,71 @@ pub fn post<T: Into<URL>>(url: T) -> Request {
     .with_header("Accept", "application/json")
 }
 
+/// Renders a true response body for diagnostics
+pub fn describe_body(response: &minreq::Response) -> String {
+  match response.as_str() {
+    Ok(text) => render_body(text),
+    Err(_) => format!("<{} bytes of non-UTF-8 body>", response.as_bytes().len()),
+  }
+}
+
+/// The pure half of [`describe_body`], split out so it can be tested without
+/// constructing a live [`minreq::Response`], byte-for-byte.
+fn render_body(text: &str) -> String {
+  if text.trim().is_empty() {
+    return "<empty body -- the server sent no content>".to_string();
+  }
+
+  text.to_string()
+}
+
+#[cfg(test)]
+mod tests {
+  use super::render_body;
+
+  #[test]
+  fn empty_body_is_called_out_explicitly() {
+    assert_eq!(
+      render_body(""),
+      "<empty body -- the server sent no content>"
+    );
+    assert_eq!(
+      render_body("   \n "),
+      "<empty body -- the server sent no content>"
+    );
+  }
+
+  #[test]
+  fn json_body_is_returned_verbatim_with_key_order_intact() {
+    let body = r#"{"error":"request_error","details":["a","b"]}"#;
+
+    // Key order must survive: serde_json would sort these alphabetically.
+    assert_eq!(render_body(body), body);
+  }
+
+  #[test]
+  fn non_json_body_is_passed_through_verbatim() {
+    let html = "<html><body>502 Bad Gateway</body></html>";
+
+    assert_eq!(render_body(html), html);
+  }
+}
+
+/// Renders response headers, sorted for stable output.
+///
+/// When a body is empty the headers carry what signal there is, like: rate-limits
+/// counters, CDN markers, and which hop actually rejected the request.
+pub fn describe_headers(response: &minreq::Response) -> String {
+  let mut headers: Vec<_> = response.headers.iter().collect();
+  headers.sort_by(|a, b| a.0.cmp(b.0));
+
+  headers
+    .into_iter()
+    .map(|(name, value)| format!("  {name}: {value}"))
+    .collect::<Vec<_>>()
+    .join("\n")
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ModrinthId(pub String);
 
@@ -69,6 +134,7 @@ pub struct Mod {
   /// Will be empty since modrinth handles authors in a different way
   /// by using teams, and currently there is no way to bulk get teams
   /// https://github.com/modrinth/labrinth/issues/331
+  // TODO: Revisit this issue, perhaps
   pub authors: Vec<Author>,
   pub icon_url: Option<String>,
   pub source_url: Option<String>,

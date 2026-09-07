@@ -17,8 +17,8 @@ pub enum Error {
   Toml(String, toml::de::Error),
   #[error("failed to parse \"{0}\": {1}")]
   TomlFile(PathBuf, toml::de::Error),
-  #[error("{0}: {1}")]
-  Response(i32, String),
+  #[error("{0}: {1}\nresponse body:\n{2}")]
+  Response(i32, String, String),
   #[error("{0}")]
   MinReq(minreq::Error),
   #[error("{0}")]
@@ -42,7 +42,11 @@ impl From<&str> for Error {
 impl From<minreq::Response> for Error {
   fn from(req: minreq::Response) -> Self {
     let message = format!("{}: ({})", req.reason_phrase, req.url.bright_cyan());
-    Self::Response(req.status_code, message)
+    // Carry the body on the error itself rather than only logging it: a failure
+    // is exactly when the body matters, and debug-level logs are invisible at
+    // the default verbosity.
+    let body = crate::request::describe_body(&req);
+    Self::Response(req.status_code, message, body)
   }
 }
 

@@ -18,7 +18,6 @@ pub struct Mod {
   pub logo: ModLogo,
 }
 
-
 #[serde_with::serde_as]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -62,18 +61,34 @@ pub fn get_curseforge_mods(ids: Vec<CurseForgeId>) -> Result<Mods, Error> {
     data: Vec<Mod>,
   }
 
-  let response = post_curseforge("/mods")
-    .with_json(&serde_json::json!({ "modIds": ids }))?
-    .send()?;
+  let body = serde_json::json!({ "modIds": ids, "filterPcOnly": true });
+  let response = post_curseforge("/mods").with_json(&body)?.send()?;
 
   match response.status_code {
     200 => response
       .json::<ResponseJson>()
-      .map_err(|err| (match response.as_str() {
-        Ok(json) => (json, err).into(),
-        Err(err) => err.into(),
-      }))
+      .map_err(|err| {
+        (match response.as_str() {
+          Ok(json) => (json, err).into(),
+          Err(err) => err.into(),
+        })
+      })
       .map(|m| m.data),
-    _ => Err(response.into()),
+    _ => {
+      log::debug!(
+        "request body sent to CurseForge:\n{}",
+        serde_json::to_string_pretty(&body).unwrap_or_else(|_| body.to_string())
+      );
+      // A 403 from CurseForge carries a zero-byte body, so the headers are the
+      // only place left with any signal about which hop rejected the request.
+      log::debug!(
+        "CurseForge returned {} {} with headers:\n{}",
+        response.status_code,
+        response.reason_phrase,
+        crate::request::describe_headers(&response)
+      );
+      // The body rides along on the error itself, so it is visible without -vv.
+      Err(response.into())
+    }
   }
 }
