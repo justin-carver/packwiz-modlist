@@ -3,7 +3,7 @@
 
 # Packwiz ModList
 
-Project original forked from [Ricky12Awesome's:  packwiz-modlist](https://github.com/Ricky12Awesome/packwiz-modlist/). (Thanks Ricky!!)
+Project originally forked from [Ricky12Awesome's:  packwiz-modlist](https://github.com/Ricky12Awesome/packwiz-modlist/). (Thanks Ricky!!)
 
 A collection of utility command-line flags/commands that augments the original `packwiz` CLI app. 
 

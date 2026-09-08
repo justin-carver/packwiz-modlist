@@ -1,15 +1,22 @@
 [package]
 name = "packwiz-modlist"
 description = "Creates a modlist from packwiz"
-authors = ["Ricky12Awesome"]
-version = "2.0.3"
+authors = ["justin-carver", "Ricky12Awesome"]
+version = "2.0.6"
 edition = "2021"
 license = "Apache-2.0"
 readme = "README.md"
-keywords = ["packwiz", "modding", "minecraft"]
+keywords = [
+    "packwiz",
+    "modding",
+    "minecraft",
+    "modrinth",
+    "curseforge",
+    "modlist",
+]
 categories = ["command-line-utilities"]
-repository = "https://github.com/Ricky12Awesome/packwiz-modlist"
-homepage = "https://github.com/Ricky12Awesome/packwiz-modlist"
+repository = "https://github.com/justin-carver/packwiz-modlist"
+homepage = "https://github.com/justin-carver/packwiz-modlist"
 build = "build.rs"
 
 # Rewrite branch, don't want to accidentally publish
