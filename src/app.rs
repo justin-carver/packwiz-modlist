@@ -3,7 +3,19 @@ use crate::parser::{ParsedCurseForgeId, ParsedModrinthId, Parser};
 use crate::request::{CurseForgeId, ModrinthId};
 use crate::{get_curseforge_mods, get_modrinth_projects, Cache, Error, Mod};
 use std::cell::{RefCell, RefMut};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+
+/// Warns about ids that were requested but never came back.
+///
+/// A deleted or renamed project will just vanishes from the list, leaving
+/// an incorrect mod count, compared to what packwiz found on disk.
+fn warn_missing(source: &str, requested: &HashMap<String, CacheId>, returned: &HashSet<String>) {
+  for id in requested.keys() {
+    if !returned.contains(id) {
+      log::warn!("{source} returned no result for \"{id}\" -- it will be missing from the list");
+    }
+  }
+}
 
 pub struct App {
   cache: RefCell<Cache>,
@@ -54,40 +66,96 @@ impl App {
     }
 
     if !mr_mods_ids.is_empty() {
-      let mr_mods = get_modrinth_projects(mr_mods_ids)?
-        .into_iter()
-        .map(Mod::from);
+      let fetched = get_modrinth_projects(mr_mods_ids)?;
+      let mut returned = HashSet::<String>::with_capacity(fetched.len());
 
-      for m in mr_mods {
-        let id = mr_id_map.get(&m.id).cloned().unwrap();
+      for m in fetched.into_iter().map(Mod::from) {
+        returned.insert(m.id.clone());
 
-        cache.set_mod(id, m.clone());
-        mods.push(m);
+        match mr_id_map.get(&m.id).cloned() {
+          Some(id) => {
+            cache.set_mod(id, m.clone());
+            mods.push(m);
+          }
+          // An id we never asked for should not take the whole run down.
+          None => log::warn!(
+            "Modrinth returned unrequested project \"{}\"; ignoring",
+            m.id
+          ),
+        }
       }
+
+      warn_missing("Modrinth", &mr_id_map, &returned);
     }
 
     if !cf_mods_ids.is_empty() {
-      let cf_mods = get_curseforge_mods(cf_mods_ids)?.into_iter().map(Mod::from);
+      let fetched = get_curseforge_mods(cf_mods_ids)?;
+      let mut returned = HashSet::<String>::with_capacity(fetched.len());
 
-      for m in cf_mods {
-        let id = cf_id_map.get(&m.id).cloned().unwrap();
+      for m in fetched.into_iter().map(Mod::from) {
+        returned.insert(m.id.clone());
 
-        cache.set_mod(id, m.clone());
-        mods.push(m);
+        match cf_id_map.get(&m.id).cloned() {
+          Some(id) => {
+            cache.set_mod(id, m.clone());
+            mods.push(m);
+          }
+          None => log::warn!(
+            "CurseForge returned unrequested project \"{}\"; ignoring",
+            m.id
+          ),
+        }
       }
+
+      warn_missing("CurseForge", &cf_id_map, &returned);
     }
 
     Ok(mods)
   }
 
-  pub fn run(&self) -> Result<(), Error> {
-    let mods = self.get_mods()?;
+  /// Every mod in the pack in alphabetical order by title, then id.
+  pub fn sorted_mods(&self) -> Result<Vec<Mod>, Error> {
+    let mut mods = self.get_mods()?;
 
-    println!("{mods:#?}");
+    // Tie-break on id so mods sharing a title still land in a fixed order.
+    mods.sort_by(|a, b| {
+      a.title
+        .to_lowercase()
+        .cmp(&b.title.to_lowercase())
+        .then_with(|| a.id.cmp(&b.id))
+    });
+
+    Ok(mods)
+  }
+
+  pub fn run(&self) -> Result<(), Error> {
+    let mods = self.sorted_mods()?;
+
+    for m in &mods {
+      println!("{}", m.title);
+    }
+
+    log::info!("listed {} mod(s)", mods.len());
     Ok(())
   }
 
+  /// Persists the cache, pruning anything no longer in the pack first.
   pub fn close(&self) -> Result<(), Error> {
-    self.cache.borrow().save()
+    let mut cache = self.cache.borrow_mut();
+
+    let installed: HashSet<String> = self
+      .modrinth_mods
+      .iter()
+      .map(|m| m.id.clone())
+      .chain(self.curseforge_mods.iter().map(|m| m.id.to_string()))
+      .collect();
+
+    let pruned = cache.retain_only(&installed);
+
+    if pruned > 0 {
+      log::debug!("pruned {pruned} cached mod(s) no longer in the pack");
+    }
+
+    cache.save()
   }
 }

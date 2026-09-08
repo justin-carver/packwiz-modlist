@@ -1,7 +1,7 @@
 use crate::error::{Error, IoContext};
 use crate::Mod;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs::OpenOptions;
 use std::io::ErrorKind;
 use std::path::PathBuf;
@@ -94,6 +94,24 @@ impl Cache {
 
   pub fn get_data(&self) -> &CacheData {
     &self.data
+  }
+
+  /// Drops cached entries for mods that are no longer in the pack.
+  ///
+  /// [`Self::set_mod`] overwrites by key, so updated mods replace themselves
+  /// cleanly. Returns how many were pruned.
+  pub fn retain_only(&mut self, keep: &HashSet<String>) -> usize {
+    let before = self.data.len();
+
+    self.data.retain(|mod_id, _| keep.contains(mod_id));
+
+    let removed = before - self.data.len();
+
+    if removed > 0 {
+      self.is_dirty = true;
+    }
+
+    removed
   }
 
   pub fn set_mod<T>(&mut self, id: T, data: Mod)
