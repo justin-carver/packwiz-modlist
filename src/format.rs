@@ -31,7 +31,7 @@ enum Field {
   Authors,
   AuthorUrls,
   AuthorsMd,
-  Count,
+  Index,
 }
 
 const FIELDS: &[(&str, Field, &str)] = &[
@@ -69,8 +69,8 @@ const FIELDS: &[(&str, Field, &str)] = &[
   ),
   ("AUTHORS_MD", Field::AuthorsMd, "authors as markdown links"),
   (
-    "COUNT",
-    Field::Count,
+    "INDEX",
+    Field::Index,
     "this mod's position in the list, starting at 1",
   ),
 ];
@@ -128,7 +128,7 @@ impl Field {
           .collect::<Vec<_>>()
           .join(", "),
       ),
-      Field::Count => Cow::Owned(position.to_string()),
+      Field::Index => Cow::Owned(position.to_string()),
     }
   }
 }
@@ -406,11 +406,11 @@ mod tests {
   /// The bug this API shape exists to prevent: numbering that never advances
   /// because the caller rendered each mod on its own.
   #[test]
-  fn count_advances_across_the_list() {
+  fn index_advances_across_the_list() {
     let mods = vec![test_mod(), test_mod(), test_mod()];
     let mut out = Vec::new();
 
-    Formatter::new(r"{COUNT}. {NAME}\n")
+    Formatter::new(r"{INDEX}. {NAME}\n")
       .unwrap()
       .write_all(&mut out, &mods)
       .unwrap();

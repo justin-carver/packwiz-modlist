@@ -3,17 +3,25 @@
 
 # Packwiz ModList
 
-Project originally forked from [Ricky12Awesome's:  packwiz-modlist](https://github.com/Ricky12Awesome/packwiz-modlist/). (Thanks Ricky!!)
+A companion CLI application for `packwiz` that parses its output data to deliver advanced utility commands and extended features for Minecraft modpack development.
 
-A collection of utility command-line flags/commands that augments the original `packwiz` CLI app. 
+Project originally forked from [Ricky12Awesome's:  packwiz-modlist](https://github.com/Ricky12Awesome/packwiz-modlist/). **(Thanks Ricky!!)** Large portions and functionality have been rewritten from the ground-up, though original code from the `rewrite` branch exists as a foundation for the core of the app.
 
-## Features
+I am currently going through the original `packwiz-modlist` args and attempting to port those over, changing functionality where it makes most sense, adding things here or there. If you have an idea, or would like something yourself, let me know!
+
+### Background
+
+I've been working on a modpack using `packwiz` for the last few weeks, and having access to the original `packwiz-modlist` repo has been a life-saver when it comes to automatically managing modlist files and content for READMEs when refreshing/indexing mods. After a while, I started running into issues and I really wanted to add more functionality, but seeing as the last update was over 2-4 years ago, and a rewrite was stopped half-way, I decided to take up the mantle to continue the rewrite, using this repo as a starting point and expand on features that (to be quite honest) the base version of `packwiz` should have.
+
+## Current Features
 
 - Creates a **Minecraft** modlist from [packwiz](https://packwiz.infra.link/). 
 
     The format of the modlist can be customized to your choosing, based on a collection of available placeholder/template strings, and it's output stored in a file or piped into other programs.
 
     See the [Formatting](#Formatting) section for more information.
+
+    **NOTE:** Will be implementing an `-o, --output` arg soon, but for now, piping content to a file works perfectly fine, e.g. `packwizml > modlist.md`.
 
 ## Formatting
 
@@ -31,11 +39,11 @@ The default modpack output is (Markdown List format):
 packwizml -f '| {NAME} | {AUTHORS} | {LICENSE_ID} |\n'
 # HTML list-item anchor tags with a newline
 packwizml -f '<li><a href="{URL}">{NAME}</a> — {DESC}</li>\n'
-# Perhaps something a bit more complicated
-packwizml -f '| {COUNT}. | <img src="{ICON_URL}" width="128px" /> | <a href="{URL}">{NAME}</a><br/><code>{DESC}</code><br/><br/><i>by {AUTHORS_MD}</i> |\n'
+# Perhaps something a bit more complicated (see image below)
+packwizml -f '| {INDEX}. | <img src="{ICON_URL}" width="128px" /> | <a href="{URL}">{NAME}</a><br/><code>{DESC}</code><br/><br/><i>by {AUTHORS_MD}</i> |\n'
 ```
 
-![alt text](.github/assets/complex-format.png)
+![Complex Custom Formatting](.github/assets/complex-format.png)
 
 Backslash escapes (`\n`, `\t`, `\r`, `\0`, `\\`, `\{`, `\}`) are resolved by
 packwizml rather than by the shell, so quote the template and write `\n`
@@ -60,7 +68,7 @@ made.
 | `{AUTHORS}` | Author names, or the owning organization, comma separated |
 | `{AUTHOR_URLS}` | Author pages, comma separated |
 | `{AUTHORS_MD}` | Authors as markdown links |
-| `{COUNT}` | This mod's position in the list, starting at 1 |
+| `{INDEX}` | This mod's position in the list, starting at 1 |
 
 A placeholder with no value for a given mod renders as an empty string. 
 
@@ -87,7 +95,7 @@ Modrinth author names cost extra lookups, because a project is credited to a
 
 **Neither API lookup runs when every mod is already cached.**
 
-> If you are getting rate-limited by an API, it is advisible to update the cache once all mod changes are finished.
+> If you are getting rate-limited by an API, it is advisible to update the cache only once all mod changes are finished.
 
 `packwizml --help` prints the same table, generated from the same source.
 
@@ -101,3 +109,7 @@ Just a small list of things I'd like to implement that would probably elevate th
 4. Extend the cache db to include information about when mod was added (may help troubleshoot terrible mod issues!)
 5. Bulk Edit / Bulk Modify mods based on regular expressions
 6. (Idk if this can be done???) Ability to hook into log files and determine what mods/deps caused previous crashes.
+
+## Issues
+
+If you encounter any bugs, have questions, or notice areas for improvement, your feedback is highly welcome! Please feel free to open an issue to report problems or suggest enhancements. If you'd like to contribute directly, you can also submit a PR with your proposed fixes or updates, and I'll get to it when I can.
