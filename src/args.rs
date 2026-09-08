@@ -12,6 +12,23 @@ use clap::{
   ArgAction, Args, ColorChoice, CommandFactory, Parser, Subcommand, ValueEnum,
 };
 
+/// Built from the placeholder table so `--help` can never drift from what the
+/// formatter actually accepts.
+fn format_long_help() -> String {
+  format!(
+    "Sets a custom output format for the modlist.\n\n\
+     A string literal with {{PLACEHOLDER}} holes in it, one per field the cache holds.\n\
+     Backslash escapes (\\n, \\t, \\\\, \\{{, \\}}) are resolved by packwizml rather than by\n\
+     the shell, so quote the template and write \\n where you want a line break.\n\n\
+     Placeholders with no value for a given mod (CurseForge sends no license,\n\
+     Modrinth sends no authors) render as an empty string.\n\n\
+     Available placeholders:\n{}\n\n\
+     [default: {}]",
+    crate::format::placeholder_help(),
+    crate::format::DEFAULT_FORMAT
+  )
+}
+
 const HELP_STYLES: Styles = Styles::styled()
   .header(AnsiColor::Yellow.on_default().bold().underline())
   .usage(AnsiColor::Yellow.on_default().bold())
@@ -39,6 +56,23 @@ pub(crate) struct Cli {
   /// Suppress all non-error output
   #[arg(short, long, global = true)]
   pub(crate) quiet: bool,
+
+  /// Sets a custom output format for the modlist
+  ///
+  /// A string literal with {PLACEHOLDER} holes in it, one per field the cache
+  /// holds. Backslash escapes (\n, \t, \\, \{, \}) are resolved here rather
+  /// than by the shell, so quote the template and write \n for a line break.
+  #[clap(
+    long,
+    short = 'f',
+    allow_hyphen_values = true,
+    default_value = crate::format::DEFAULT_FORMAT,
+    // clap debug-prints defaults, which would show the literal \n as \\n; the
+    // long help states it plainly instead.
+    hide_default_value = true,
+    long_help = format_long_help()
+  )]
+  pub(crate) format: String,
 
   #[command(subcommand)]
   pub(crate) command: Option<Command>,

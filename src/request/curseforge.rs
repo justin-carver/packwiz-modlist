@@ -15,7 +15,18 @@ pub struct Mod {
   pub links: ModLinks,
   pub summary: String,
   pub authors: Vec<ModAuthor>,
-  pub logo: ModLogo,
+  /// [None] for projects that never had a logo uploaded
+  pub logo: Option<ModLogo>,
+}
+
+impl Mod {
+  pub fn url(&self) -> String {
+    self
+      .links
+      .website_url
+      .clone()
+      .unwrap_or_else(|| format!("https://www.curseforge.com/minecraft/mc-mods/{}", self.slug))
+  }
 }
 
 #[serde_with::serde_as]

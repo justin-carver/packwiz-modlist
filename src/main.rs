@@ -6,10 +6,11 @@ use crate::app::App;
 use crate::args::{Cli, Command};
 use crate::cache::Cache;
 use crate::error::Error;
+use crate::format::Formatter;
 use crate::parser::packwiz::PackwizParser;
 use crate::parser::text::TextParser;
 use crate::request::curseforge::get_curseforge_mods;
-use crate::request::modrinth::get_modrinth_projects;
+use crate::request::modrinth::get_modrinth_mods;
 use crate::request::Mod;
 
 mod app;
@@ -17,6 +18,7 @@ mod args;
 mod cache;
 mod consts;
 mod error;
+mod format;
 mod parser;
 mod request;
 mod util;
@@ -48,7 +50,7 @@ const MODPACK_TOML_PATH: &str = env!("MODPACK_TOML_PATH");
 
 const CACHE_PATH: &str = ".packwiz-modlist.cache.json";
 
-fn run() -> Result<(), Error> {
+fn run(cli: Cli) -> Result<(), Error> {
   match std::env::current_dir() {
     Ok(cwd) => log::debug!("working directory: \"{}\"", cwd.display()),
     Err(err) => log::debug!("could not determine working directory: {err}"),
@@ -62,7 +64,7 @@ fn run() -> Result<(), Error> {
   let pw_parser = PackwizParser::load_from(MODPACK_TOML_PATH)?;
   let app = App::new(cache, pw_parser);
 
-  if let Err(err) = app.run() {
+  if let Err(err) = app.run(cli) {
     log::error!("{err}");
   }
 
@@ -76,15 +78,18 @@ fn run() -> Result<(), Error> {
 fn main() {
   // Setting up arg parsing outside of app.rs for now, as these are core commands.
   let cli = args::Cli::parse();
-  let verbosity = args::Verbosity::resolve(cli.verbose, cli.quiet);
 
+  // Flags
+  let verbosity = args::Verbosity::resolve(cli.verbose, cli.quiet);
+  // Logging needs to be run after verbosity is resolved, but before any other code that may log.
   setup_logging(verbosity);
 
-  // Result of the most recently run command
+  // Commands & Subcommands
+  // Result of the most recently run subcommand
   let result = match cli.command {
     Some(Command::Config { path }) => args::config(path),
     Some(Command::About) => args::about(),
-    None => run().map_err(|err| err.to_string()),
+    None => run(cli).map_err(|err| err.to_string()),
   };
 
   if let Err(err) = result {

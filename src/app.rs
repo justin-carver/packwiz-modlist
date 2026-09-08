@@ -1,9 +1,12 @@
+use crate::args::Cli;
 use crate::cache::CacheId;
+use crate::format::Formatter;
 use crate::parser::{ParsedCurseForgeId, ParsedModrinthId, Parser};
 use crate::request::{CurseForgeId, ModrinthId};
-use crate::{get_curseforge_mods, get_modrinth_projects, Cache, Error, Mod};
+use crate::{get_curseforge_mods, get_modrinth_mods, Cache, Error, Mod};
 use std::cell::{RefCell, RefMut};
 use std::collections::{HashMap, HashSet};
+use std::io::{BufWriter, Write};
 
 /// Warns about ids that were requested but never came back.
 ///
@@ -66,10 +69,10 @@ impl App {
     }
 
     if !mr_mods_ids.is_empty() {
-      let fetched = get_modrinth_projects(mr_mods_ids)?;
+      let fetched = get_modrinth_mods(mr_mods_ids)?;
       let mut returned = HashSet::<String>::with_capacity(fetched.len());
 
-      for m in fetched.into_iter().map(Mod::from) {
+      for m in fetched {
         returned.insert(m.id.clone());
 
         match mr_id_map.get(&m.id).cloned() {
@@ -128,12 +131,20 @@ impl App {
     Ok(mods)
   }
 
-  pub fn run(&self) -> Result<(), Error> {
+  pub fn run(&self, cli: Cli) -> Result<(), Error> {
+    // Parsed before anything is fetched, so a typo in the template costs a
+    // message instead of a round of API calls.
+    let formatter = Formatter::new(&cli.format)?;
     let mods = self.sorted_mods()?;
 
-    for m in &mods {
-      println!("{}", m.title);
-    }
+    // One locked, buffered handle: a few hundred mods would otherwise be a few
+    // hundred lock-and-flush cycles.
+    let stdout = std::io::stdout();
+    let mut out = BufWriter::new(stdout.lock());
+
+    formatter.write_all(&mut out, &mods)?;
+
+    out.flush()?;
 
     log::info!("listed {} mod(s)", mods.len());
     Ok(())

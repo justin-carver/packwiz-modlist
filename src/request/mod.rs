@@ -1,4 +1,5 @@
 use crate::consts::USER_AGENT;
+use crate::error::Error;
 use crate::parser::{ParsedCurseForgeId, ParsedModrinthId};
 use minreq::{Request, URL};
 use serde::{Deserialize, Serialize};
@@ -18,6 +19,28 @@ pub fn post<T: Into<URL>>(url: T) -> Request {
     .with_header("User-Agent", USER_AGENT)
     .with_header("Content-Type", "application/json")
     .with_header("Accept", "application/json")
+}
+
+/// Deserializes a 200 response into `T`, or builds an [`Error`] carrying the body.
+pub fn json_or_error<T>(source: &str, response: minreq::Response) -> Result<T, Error>
+where
+  T: serde::de::DeserializeOwned,
+{
+  if response.status_code != 200 {
+    log::debug!(
+      "{source} returned {} {} with headers:\n{}",
+      response.status_code,
+      response.reason_phrase,
+      describe_headers(&response)
+    );
+
+    return Err(response.into());
+  }
+
+  response.json::<T>().map_err(|err| match response.as_str() {
+    Ok(json) => (json, err).into(),
+    Err(err) => err.into(),
+  })
 }
 
 /// Renders a true response body for diagnostics
@@ -128,13 +151,14 @@ pub struct Mod {
   pub slug: String,
   pub title: String,
   pub description: String,
+  /// The project's page on Modrinth/CurseForge.
+  pub mod_url: String,
   /// [Option] because Curseforge doesn't offer a simple way to get a
   /// license for a project even though it's right on the project page
   pub license: Option<License>,
-  /// Will be empty since modrinth handles authors in a different way
-  /// by using teams, and currently there is no way to bulk get teams
-  /// https://github.com/modrinth/labrinth/issues/331
-  // TODO: Revisit this issue, perhaps
+  /// Modrinth credits a team rather than a user list, so its authors come
+  /// from a second bulk call to `/teams` ([`modrinth::get_modrinth_mods`])
+  /// and are empty if that call fails.
   pub authors: Vec<Author>,
   pub icon_url: Option<String>,
   pub source_url: Option<String>,
@@ -159,6 +183,7 @@ pub struct License {
 
 impl From<modrinth::Project> for Mod {
   fn from(project: modrinth::Project) -> Self {
+    let mod_url = project.url();
     Self {
       id: project.id,
       slug: project.slug,
@@ -171,8 +196,9 @@ impl From<modrinth::Project> for Mod {
       }),
       authors: Vec::new(),
       icon_url: project.icon_url,
+      mod_url,
       source_url: project.source_url,
-      issues_url: project.issue_url,
+      issues_url: project.issues_url,
       wiki_url: project.wiki_url,
     }
   }
@@ -180,11 +206,13 @@ impl From<modrinth::Project> for Mod {
 
 impl From<curseforge::Mod> for Mod {
   fn from(project: curseforge::Mod) -> Self {
+    let mod_url = project.url();
     Self {
       id: project.id.to_string(),
       slug: project.slug,
       title: project.name,
       description: project.summary,
+      mod_url,
       license: None,
       authors: project
         .authors
@@ -194,7 +222,7 @@ impl From<curseforge::Mod> for Mod {
           url: author.url,
         })
         .collect(),
-      icon_url: project.logo.thumbnail_url.into(),
+      icon_url: project.logo.map(|logo| logo.thumbnail_url),
       source_url: project.links.source_url,
       issues_url: project.links.issues_url,
       wiki_url: project.links.wiki_url,

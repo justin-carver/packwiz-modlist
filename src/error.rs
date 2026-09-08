@@ -24,6 +24,8 @@ pub enum Error {
   #[error("{0}")]
   TextParser(#[from] crate::parser::text::ParseError),
   #[error("{0}")]
+  Format(#[from] crate::format::FormatError),
+  #[error("{0}")]
   Other(String),
 }
 

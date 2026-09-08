@@ -8,6 +8,24 @@ use std::path::PathBuf;
 
 pub type CacheData = HashMap<String, CacheMod>;
 
+/// Bump whenever [`Mod`] gains or changes a field.
+///
+/// An older file is not corrupt so much as incomplete: every entry in it would
+/// stay pinned to whatever the previous build knew how to fetch, because the
+/// cache key is the mod's version and that has not changed. Rebuilding costs
+/// one round of API calls.
+///
+/// 2: Modrinth authors, which entries written before then left empty.
+const CACHE_VERSION: u32 = 2;
+
+/// The on-disk shape. Generic over the map so writing can borrow it and
+/// reading can own it, without a second struct or a clone of the whole cache.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct CacheFile<M> {
+  version: u32,
+  mods: M,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CacheMod {
   pub cache_id: String,
@@ -57,19 +75,47 @@ impl Cache {
     log::debug!("loading cache from \"{}\"", resolved.display());
 
     match OpenOptions::new().read(true).open(&file) {
-      Ok(reader) => {
-        let data: CacheData = serde_json::from_reader(reader)?;
-        log::debug!(
-          "loaded {} cached mod(s) from \"{}\"",
-          data.len(),
-          resolved.display()
-        );
-        Ok(Self {
-          file,
-          is_dirty: false,
-          data,
-        })
-      }
+      Ok(reader) => match serde_json::from_reader::<_, CacheFile<CacheData>>(reader) {
+        Ok(cache) if cache.version == CACHE_VERSION => {
+          log::debug!(
+            "loaded {} cached mod(s) from \"{}\"",
+            cache.mods.len(),
+            resolved.display()
+          );
+          Ok(Self {
+            file,
+            is_dirty: false,
+            data: cache.mods,
+          })
+        }
+        Ok(cache) => {
+          log::info!(
+            "cache at \"{}\" is version {} but this build writes version {CACHE_VERSION}; rebuilding it",
+            resolved.display(),
+            cache.version
+          );
+          Ok(Self {
+            file,
+            is_dirty: true,
+            data: Default::default(),
+          })
+        }
+        // A cache written by an older build is missing any field added since.
+        // Rebuilding costs one round of API calls; refusing to start costs the
+        // whole run, so we treat an unreadable cache as an empty one.
+        Err(err) => {
+          log::warn!(
+            "ignoring unreadable cache at \"{}\" ({err}); it will be rebuilt",
+            resolved.display()
+          );
+          Ok(Self {
+            file,
+            // Mark dirty so the stale file is replaced even if nothing changes.
+            is_dirty: true,
+            data: Default::default(),
+          })
+        }
+      },
       Err(err) => match err.kind() {
         ErrorKind::NotFound => {
           log::debug!(
@@ -155,7 +201,13 @@ impl Cache {
         .open(&self.file)
         .path_ctx(&resolved, "write cache file")?;
 
-      serde_json::to_writer(file, &self.data)?;
+      serde_json::to_writer(
+        file,
+        &CacheFile {
+          version: CACHE_VERSION,
+          mods: &self.data,
+        },
+      )?;
 
       log::debug!(
         "wrote {} cached mod(s) to \"{}\"",
