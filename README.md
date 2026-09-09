@@ -16,7 +16,7 @@ A companion CLI application for `packwiz` that parses its output data to deliver
 
 ## Current Features
 
-- Creates a **Minecraft** modlist from [packwiz](https://packwiz.infra.link/). 
+- Creates a **Minecraft** modlist from [packwiz](https://packwiz.infra.link/).
 
     The format of the modlist can be customized to your choosing, based on a collection of available placeholder/template strings, and it's output stored in a file or piped into other programs.
 
@@ -65,9 +65,8 @@ cargo install --path .
 from the working directory if one is present. Copy [`.env.example`](.env.example)
 to `.env` to get started.
 
-| Variable | Required | Value |
-| --- | --- | --- |
-| `PACK_ROOT` | No | Directory holding your `*.pw.toml` files. Defaults to `.`, so running from inside the pack folder needs no configuration. |
+| Variable     | Required            | Value                                                                                                                                                           |
+| ------------ | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `CF_API_KEY` | For CurseForge mods | A [CurseForge API key](https://console.curseforge.com/). Only requested when the pack actually contains CurseForge mods — a Modrinth-only pack never needs one. |
 
 Quote `CF_API_KEY` with **single** quotes. CurseForge keys are bcrypt-shaped
@@ -80,7 +79,7 @@ Nothing is read at compile time — `build.rs` fails the build if anything under
 ## Formatting
 
 `--format` / `-f` takes a string literal with `{PLACEHOLDER}` holes in it, one
-per field the cache holds. 
+per field the cache holds.
 
 The default modpack output is (Markdown List format):
 
@@ -105,30 +104,30 @@ wherever you want a line break — nothing is appended for you. Placeholder name
 are case-insensitive, and a bad template is rejected before any API calls are
 made.
 
-| Placeholder | Value |
-| --- | --- |
-| `{ID}` | Project id (Modrinth base62, CurseForge numeric) |
-| `{SLUG}` | URL slug, e.g. `sodium` |
-| `{NAME}`, `{TITLE}` | Project title |
-| `{DESCRIPTION}`, `{DESC}` | Short description / summary |
-| `{URL}` | Project page on Modrinth/CurseForge |
-| `{ICON_URL}` | Project icon image |
-| `{SOURCE_URL}` | Source repository |
-| `{ISSUES_URL}` | Issue tracker |
-| `{WIKI_URL}` | Wiki / documentation |
-| `{LICENSE}` | License name |
-| `{LICENSE_ID}` | License id, e.g. `MIT` |
-| `{LICENSE_URL}` | License text |
-| `{AUTHORS}` | Author names, or the owning organization, comma separated |
-| `{AUTHOR_URLS}` | Author pages, comma separated |
-| `{AUTHORS_MD}` | Authors as markdown links |
-| `{INDEX}` | This mod's position in the list, starting at 1 |
+| Placeholder               | Value                                                     |
+| ------------------------- | --------------------------------------------------------- |
+| `{ID}`                    | Project id (Modrinth base62, CurseForge numeric)          |
+| `{SLUG}`                  | URL slug, e.g. `sodium`                                   |
+| `{NAME}`, `{TITLE}`       | Project title                                             |
+| `{DESCRIPTION}`, `{DESC}` | Short description / summary                               |
+| `{URL}`                   | Project page on Modrinth/CurseForge                       |
+| `{ICON_URL}`              | Project icon image                                        |
+| `{SOURCE_URL}`            | Source repository                                         |
+| `{ISSUES_URL}`            | Issue tracker                                             |
+| `{WIKI_URL}`              | Wiki / documentation                                      |
+| `{LICENSE}`               | License name                                              |
+| `{LICENSE_ID}`            | License id, e.g. `MIT`                                    |
+| `{LICENSE_URL}`           | License text                                              |
+| `{AUTHORS}`               | Author names, or the owning organization, comma separated |
+| `{AUTHOR_URLS}`           | Author pages, comma separated                             |
+| `{AUTHORS_MD}`            | Authors as markdown links                                 |
+| `{INDEX}`                 | This mod's position in the list, starting at 1            |
 
-A placeholder with no value for a given mod renders as an empty string. 
+A placeholder with no value for a given mod renders as an empty string.
 
 ### Formatting Notes
 
-Line breaks *inside* a value are collapsed to single spaces before
+Line breaks _inside_ a value are collapsed to single spaces before
 substitution. Both Modrinth and CurseForge allow them in a description, and one arriving mid-entry
 would otherwise split a list item or table row across lines — so the only line
 breaks in the output are the ones custom format's request.
@@ -137,11 +136,11 @@ CurseForge exposes no license anywhere in its public API, even though it is show
 therefore empty for CurseForge mods.
 
 Modrinth author names cost extra lookups, because a project is credited to a
-*Team* rather than to a list of users:
+_Team_ rather than to a list of users:
 
 - Team members come from a bulk `/v2/teams` call, sorted owner-first so the
   credit line is stable between runs.
-- A project owned by an *organization* has an empty team, and the site credits
+- A project owned by an _organization_ has an empty team, and the site credits
   the organization — so `{AUTHORS}` gets the organization
   (`Forgified Fabric API :: Sinytra`). This is the one place `sculkr` touches
   Modrinth's `/v3` API, which is documented as unstable, so a failure there
@@ -170,14 +169,12 @@ If you encounter any bugs, have questions, or notice areas for improvement, your
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for how to set up a development environment, what CI checks against, and how releases are cut.
 
-
 ---
 
-
-*<strong>sculkr</strong> began as a fork of [packwiz-modlist](https://github.com/Ricky12Awesome/packwiz-modlist)
+_<strong>sculkr</strong> began as a fork of [packwiz-modlist](https://github.com/Ricky12Awesome/packwiz-modlist)
 by Ricky12Awesome, rewritten and renamed with their consent ([discussion](https://github.com/Ricky12Awesome/packwiz-modlist/issues/4)).
-Large portions and functionality have been rewritten from the ground-up, with more and more features being added monthly.*
+Large portions and functionality have been rewritten from the ground-up, with more and more features being added monthly._
 
-*I am currently going through the original `packwiz-modlist` args and attempting to port those over, changing functionality where it makes most sense, adding things here or there. If you have an idea, or would like something yourself, let me know!*
+_I am currently going through the original `packwiz-modlist` args and attempting to port those over, changing functionality where it makes most sense, adding things here or there. If you have an idea, or would like something yourself, let me know!_
 
-*Licensed under Apache-2.0; see [NOTICE](NOTICE).*
+_Licensed under Apache-2.0; see [NOTICE](NOTICE)._
