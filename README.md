@@ -1,7 +1,6 @@
-<!-- [![crates.io](https://img.shields.io/crates/v/packwiz-modlist.svg)](https://crates.io/crates/packwiz-modlist) -->
-[![license](https://img.shields.io/github/license/Ricky12Awesome/packwiz-modlist)](https://github.com/Ricky12Awesome/packwiz-modlist/blob/main/LICENSE)
+[![license](https://img.shields.io/github/license/justin-carver/sculkr)](https://github.com/justin-carver/sculkr/blob/main/LICENSE)
 
-# Packwiz ModList
+# sculkr
 
 A companion CLI application for `packwiz` that parses its output data to deliver advanced utility commands and extended features for Minecraft modpack development.
 
@@ -21,7 +20,7 @@ I've been working on a modpack using `packwiz` for the last few weeks, and havin
 
     See the [Formatting](#Formatting) section for more information.
 
-    **NOTE:** Will be implementing an `-o, --output` arg soon, but for now, piping content to a file works perfectly fine, e.g. `packwizml > modlist.md`.
+    **NOTE:** Will be implementing an `-o, --output` arg soon, but for now, piping content to a file works perfectly fine, e.g. `sculkr > modlist.md`.
 
 ## Formatting
 
@@ -36,17 +35,17 @@ The default modpack output is (Markdown List format):
 
 ```sh
 # Markdown table rows
-packwizml -f '| {NAME} | {AUTHORS} | {LICENSE_ID} |\n'
+sculkr -f '| {NAME} | {AUTHORS} | {LICENSE_ID} |\n'
 # HTML list-item anchor tags with a newline
-packwizml -f '<li><a href="{URL}">{NAME}</a> — {DESC}</li>\n'
+sculkr -f '<li><a href="{URL}">{NAME}</a> — {DESC}</li>\n'
 # Perhaps something a bit more complicated (see image below)
-packwizml -f '| {INDEX}. | <img src="{ICON_URL}" width="128px" /> | <a href="{URL}">{NAME}</a><br/><code>{DESC}</code><br/><br/><i>by {AUTHORS_MD}</i> |\n'
+sculkr -f '| {INDEX}. | <img src="{ICON_URL}" width="128px" /> | <a href="{URL}">{NAME}</a><br/><code>{DESC}</code><br/><br/><i>by {AUTHORS_MD}</i> |\n'
 ```
 
 ![Complex Custom Formatting](.github/assets/complex-format.png)
 
 Backslash escapes (`\n`, `\t`, `\r`, `\0`, `\\`, `\{`, `\}`) are resolved by
-packwizml rather than by the shell, so quote the template and write `\n`
+sculkr rather than by the shell, so quote the template and write `\n`
 wherever you want a line break — nothing is appended for you. Placeholder names
 are case-insensitive, and a bad template is rejected before any API calls are
 made.
@@ -89,7 +88,7 @@ Modrinth author names cost extra lookups, because a project is credited to a
   credit line is stable between runs.
 - A project owned by an *organization* has an empty team, and the site credits
   the organization — so `{AUTHORS}` gets the organization
-  (`Forgified Fabric API :: Sinytra`). This is the one place `packwiz-modlist` touches
+  (`Forgified Fabric API :: Sinytra`). This is the one place `sculkr` touches
   Modrinth's `/v3` API, which is documented as unstable, so a failure there
   logs a warning and leaves those authors empty rather than failing the run... perhaps it'll be stable later.
 
@@ -97,7 +96,7 @@ Modrinth author names cost extra lookups, because a project is credited to a
 
 > If you are getting rate-limited by an API, it is advisible to update the cache only once all mod changes are finished.
 
-`packwizml --help` prints the same table, generated from the same source.
+`sculkr --help` prints the same table, generated from the same source.
 
 ## Todo
 

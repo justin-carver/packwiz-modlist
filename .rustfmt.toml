@@ -1,5 +1,45 @@
-max_width = 100
+# Stable
+# Language and style edition
+edition = "2021"
+style_edition = "2024"
 
-# Tab space of 4 is way too big, 2 is what it should be
-# (Hmmmm are you sure abut that...) - @justin-carver
-tab_spaces = 2
+# Layout
+max_width = 100
+tab_spaces = 4
+hard_tabs = false
+newline_style = "Unix"
+use_small_heuristics = "Default"
+fn_params_layout = "Tall"
+
+# Imports and items
+reorder_imports = true
+reorder_modules = true
+merge_derives = true
+
+# Idiom cleanups
+use_field_init_shorthand = true
+use_try_shorthand = true
+remove_nested_parens = true
+force_explicit_abi = true
+match_arm_leading_pipes = "Never"
+
+# Nightly-only (requires `cargo +nightly fmt`)
+#
+# All options below require `cargo +nightly fmt`.
+# Stable rustfmt prints a warning for each and then ignores them, so this
+# file is safe to use on both toolchains.
+
+# Imports: split into std / external / crate blocks, collapsed per crate
+group_imports = "StdExternalCrate"
+imports_granularity = "Crate"
+
+# Comments and docs
+wrap_comments = true
+comment_width = 100
+normalize_comments = true
+format_code_in_doc_comments = true
+
+# Misc
+condense_wildcard_suffixes = true
+reorder_impl_items = true
+overflow_delimited_expr = true

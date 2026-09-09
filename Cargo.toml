@@ -45,6 +45,4 @@ thiserror = "2.0"
 colored = "3.1"
 log = "0.4"
 simple_logger = "5.2"
-
-[build-dependencies]
-dotenv-build = "0.1"
+dotenvy = "0.15"

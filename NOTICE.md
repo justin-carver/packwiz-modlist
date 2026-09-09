@@ -1,0 +1,36 @@
+sculkr
+Copyright 2026 Justin Carver
+
+This product includes software originally developed as packwiz-modlist.
+Copyright 2022 Ricky12Awesome
+https://github.com/Ricky12Awesome/packwiz-modlist
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+---
+
+NOTICE OF MODIFICATIONS
+
+sculkr is a substantially rewritten derivative of packwiz-modlist.
+The project was renamed with the original author's consent.
+
+Changes from the original include, but are not limited to:
+
+  - Rewritten application core and command structure
+  - Rewritten error handling with descriptive, contextual errors
+  - Expanded placeholder and templating system
+  - Revised CurseForge API integration
+  - Renamed from packwiz-modlist to sculkr; CLI binary renamed
+    from packwizml to sculkr
+  - Processed and managed new dependencies for modern Rust compliance
+  - Upgraded and diversified new CI/CD workflows
