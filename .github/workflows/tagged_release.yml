@@ -3,91 +3,288 @@ name: Tagged Release
 on:
   push:
     tags:
-      - "v*"
+      - "v[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+-*"
 
+  # Manual runs build and verify everything, then publish nothing.
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+# build.rs rejects compile-time variable lookups, so anything
+# the crate needs is read at run time and never reaches an artifact.
 env:
-  BINARY_NAME: packwizml
-  CF_API_KEY:  ${{ secrets.CF_API_KEY }}
+  BINARY_NAME: sculkr
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  RUST_BACKTRACE: 1
 
 jobs:
-  artifact:
-    name: Artifact for ${{ matrix.job.os-name }}
-    runs-on: ${{ matrix.job.os }}
+  meta:
+    name: Resolve release metadata
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+      tag: ${{ steps.resolve.outputs.tag }}
+      prerelease: ${{ steps.resolve.outputs.prerelease }}
+      publish: ${{ steps.resolve.outputs.publish }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
+      - name: Resolve version and publish mode
+        id: resolve
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          crate_version="$(sed -n 's/^version *= *"\(.*\)".*/\1/p' Cargo.toml | head -n1)"
+          if [[ -z "$crate_version" ]]; then
+            echo "::error file=Cargo.toml::Could not read [package] version from Cargo.toml"
+            exit 1
+          fi
+
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            tag="${GITHUB_REF_NAME}"
+            version="${tag#v}"
+            if [[ "$version" != "$crate_version" ]]; then
+              echo "::error file=Cargo.toml::Tag ${tag} does not match Cargo.toml version ${crate_version}. Bump the manifest or retag."
+              exit 1
+            fi
+            publish=true
+          else
+            tag="v${crate_version}"
+            version="$crate_version"
+            publish=false
+          fi
+
+          # 1.0.0-rc.1 and friends get flagged as pre-releases.
+          if [[ "$version" == *-* ]]; then prerelease=true; else prerelease=false; fi
+
+          {
+            echo "version=$version"
+            echo "tag=$tag"
+            echo "prerelease=$prerelease"
+            echo "publish=$publish"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "### Release metadata"
+            echo ""
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| Version | \`$version\` |"
+            echo "| Tag | \`$tag\` |"
+            echo "| Pre-release | \`$prerelease\` |"
+            echo "| Publishes a GitHub release | \`$publish\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  lint:
+    name: Lint (fmt, clippy, docs)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: lint
+
+      - name: Check formatting
+        run: cargo fmt +nightly --all --check
+
+      - name: Clippy
+        run: cargo clippy --locked --all-targets --all-features -- -D warnings
+
+      - name: Check documentation
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --locked --no-deps --all-features
+
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        rust: [ stable ]
-        job:
-          - os: windows-latest
-            os-name: windows
-            target: x86_64-pc-windows-msvc
-            architecture: x86_64
-            binary-postfix: ".exe"
-            use-cross: false
-          - os: ubuntu-latest
-            os-name: linux
-            target: x86_64-unknown-linux-gnu
-            architecture: x86_64
-            binary-postfix: ""
-            use-cross: false
-          - os: macos-latest
-            os-name: macos
-            target: x86_64-apple-darwin
-            architecture: x86_64
-            binary-postfix: ""
-            use-cross: false
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: test-${{ matrix.os }}
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@nextest
+
+      - name: Run tests
+        run: cargo nextest run --locked --all-features
+
+      - name: Run doctests
+        run: cargo test --locked --all-features --doc
+
+  # Every target builds on its own architecture. rustls pulls in aws-lc-sys,
+  # which compiles C and assembly. Intel macOS is the exception: one Xcode SDK covers both.
+  build:
+    name: Build ${{ matrix.target }}
+    needs: [meta, lint, test]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-24.04-arm
+          - target: x86_64-apple-darwin
+            os: macos-latest
+          - target: aarch64-apple-darwin
+            os: macos-latest
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            ext: .exe
+
+    env:
+      # Env overrides rather than RUSTFLAGS, which would invalidate the cache.
+      CARGO_PROFILE_RELEASE_LTO: "true"
+      CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "1"
+      CARGO_PROFILE_RELEASE_STRIP: symbols
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: ${{ matrix.rust }}
-          profile: minimal
-          override: true
+          targets: ${{ matrix.target }}
 
-      - name: Build Binary
-        uses: actions-rs/cargo@v1
+      - name: Cache cargo artifacts
+        uses: Swatinem/rust-cache@v2
         with:
-          command: build
-          use-cross: ${{ matrix.job.use-cross }}
-          toolchain: ${{ matrix.rust }}
-          args: --release
+          key: build-${{ matrix.target }}
 
-      - name: Setup Environment Variables
+      - name: Build release binary
+        run: cargo build --locked --release --target ${{ matrix.target }}
+
+      - name: Smoke test the binary
+        # Intel macOS is cross-compiled and cannot run on an arm64 runner.
+        if: matrix.target != 'x86_64-apple-darwin'
         shell: bash
         run: |
-          echo "SRC=target/release/${{ env.BINARY_NAME }}${{ matrix.job.binary-postfix }}" >> $GITHUB_ENV
-          echo "DST=target/release/${{ env.BINARY_NAME }}-${{ matrix.job.os-name }}-${{ matrix.job.architecture }}${{ matrix.job.binary-postfix }}" >> $GITHUB_ENV
+          set -euo pipefail
+          "target/${{ matrix.target }}/release/${BINARY_NAME}${{ matrix.ext }}" --version
 
-      - name: Rename File
+      - name: Package archive
+        id: package
         shell: bash
-        run: mv ${{ env.SRC }} ${{ env.DST }}
+        env:
+          TARGET: ${{ matrix.target }}
+          EXT: ${{ matrix.ext }}
+          VERSION: ${{ needs.meta.outputs.version }}
+        run: |
+          set -euo pipefail
 
-      - name: Upload Binary
-        uses: actions/upload-artifact@v2
+          stem="${BINARY_NAME}-${VERSION}-${TARGET}"
+          staging="dist/${stem}"
+          mkdir -p "$staging"
+
+          cp "target/${TARGET}/release/${BINARY_NAME}${EXT}" "$staging/"
+          cp README.md LICENSE "$staging/"
+
+          cd dist
+          if [[ "$TARGET" == *windows* ]]; then
+            archive="${stem}.zip"
+            7z a -bso0 "$archive" "$stem" >/dev/null
+          else
+            archive="${stem}.tar.gz"
+            tar --create --gzip --file "$archive" "$stem"
+          fi
+          rm -rf "$stem"
+
+          # macOS ships shasum, everyone else sha256sum.
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum "$archive" > "${archive}.sha256"
+          else
+            shasum -a 256 "$archive" > "${archive}.sha256"
+          fi
+
+          echo "archive=$archive" >> "$GITHUB_OUTPUT"
+          echo "Built \`$archive\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload archive
+        uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.BINARY_NAME }}-${{ matrix.job.os-name }}-${{ matrix.job.architecture }}
-          path: ${{ env.DST }}
-          retention-days: 1
+          name: ${{ env.BINARY_NAME }}-${{ matrix.target }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 7
 
   release:
-    name: Release
+    name: Publish release
+    needs: [meta, build]
+    if: needs.meta.outputs.publish == 'true'
     runs-on: ubuntu-latest
-    needs: artifact
-    if: startsWith(github.ref, 'refs/tags/v') # Ignore this job if I do manual build for testing
+    permissions:
+      contents: write
+      id-token: write # provenance attestation
+      attestations: write
     steps:
-      - name: Download Artifacts
-        uses: actions/download-artifact@v2
-
-      - name: Release Artifacts
-        uses: marvinpinto/action-automatic-releases@latest
+      - name: Download all archives
+        uses: actions/download-artifact@v4
         with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          prerelease: false
+          path: dist
+          pattern: ${{ env.BINARY_NAME }}-*
+          merge-multiple: true
+
+      - name: Collect checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd dist
+          cat ./*.sha256 | sort -k2 > SHA256SUMS.txt
+          rm -f ./*.sha256
+
+          echo "### Artifacts" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          cat SHA256SUMS.txt >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/*.tar.gz, dist/*.zip
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.meta.outputs.tag }}
+          name: ${{ env.BINARY_NAME }} ${{ needs.meta.outputs.tag }}
+          draft: false
+          prerelease: ${{ needs.meta.outputs.prerelease }}
+          make_latest: ${{ needs.meta.outputs.prerelease == 'false' }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
           files: |
-            */*
+            dist/*.tar.gz
+            dist/*.zip
+            dist/SHA256SUMS.txt

@@ -1,51 +1,48 @@
 [package]
-name = "packwiz-modlist"
-description = "Creates a modlist from packwiz"
-authors = ["justin-carver", "Ricky12Awesome"]
-version = "2.0.6"
-edition = "2021"
+name = "sculkr"
+description = "Companion CLI for packwiz - generate modlists and track Minecraft modpack changes"
+authors = ["justin-carver"]
+version = "0.1.0"
+edition = "2024"
 license = "Apache-2.0"
 readme = "README.md"
 keywords = [
     "packwiz",
-    "modding",
+    "modpack",
     "minecraft",
-    "modrinth",
     "curseforge",
     "modlist",
 ]
 categories = ["command-line-utilities"]
-repository = "https://github.com/justin-carver/packwiz-modlist"
-homepage = "https://github.com/justin-carver/packwiz-modlist"
+repository = "https://github.com/justin-carver/sculkr"
+homepage = "https://github.com/justin-carver/sculkr"
 build = "build.rs"
+exclude = ["./github", "/tests", "*.png"]
 
-# Rewrite branch, don't want to accidentally publish
-publish = false
+publish = true
 
 [[bin]]
-name = "packwizml"
+name = "sculkr"
 path = "src/main.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 
-clap = { version = "4.5", features = ["cargo", "derive", "color"] }
+clap = { version = "4.6", features = ["cargo", "derive", "color"] }
 
-minreq = { version = "2.11", features = [
+minreq = { version = "3.0", features = [
     "https-rustls",
     "json-using-serde",
     "urlencoding",
 ] }
 
 serde = { version = "1.0", features = ["derive"] }
-serde_with = "3.7"
+serde_with = "3.23"
 serde_json = "1.0"
-toml = "0.8"
-thiserror = "1.0"
-colored = "2.1"
+toml = "1.1"
+thiserror = "2.0"
+colored = "3.1"
 log = "0.4"
-simple_logger = "4.3"
-
-[build-dependencies]
-dotenv-build = "0.1"
+simple_logger = "5.2"
+dotenvy = "0.15"
