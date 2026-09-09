@@ -21,7 +21,6 @@ push = true
 tag-name = "v{{version}}"
 tag-message = "sculkr {{version}}"
 pre-release-commit-message = "release v{{version}}"
-sign-tag = true
 
 [[package.metadata.release.pre-release-replacements]]
 file = "CHANGELOG.md"
