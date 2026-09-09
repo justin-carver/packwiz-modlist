@@ -77,7 +77,7 @@ pub(crate) struct Cli {
 #[derive(Debug, Subcommand)]
 pub(crate) enum Command {
     // TODO: This needs to be done differently, probably hardcoded.
-    /// Prints information about this program via Cargo.toml
+    /// Prints information about this program, including version, authors, and description.
     About,
     /// Print the sculkr configuration to stdout
     Config {
