@@ -125,7 +125,7 @@ pub fn get_modrinth_teams(teams: Vec<String>) -> Result<Teams, Error> {
     json_or_error("Modrinth", response)
 }
 
-/// Projects, with their team members resolved into [`Mod::authors`].
+/// Projects, with their team members resolved into [`Author`]s.
 ///
 /// Modrinth credits a *team* rather than a list of users, so author names cost
 /// a second bulk request keyed by the team ids the first one returned. That

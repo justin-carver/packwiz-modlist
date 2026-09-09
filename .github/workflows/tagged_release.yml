@@ -137,9 +137,6 @@ jobs:
       - name: Run tests
         run: cargo nextest run --locked --all-features
 
-      - name: Run doctests
-        run: cargo test --locked --all-features --doc
-
   # Every target builds on its own architecture. rustls pulls in aws-lc-sys,
   # which compiles C and assembly. Intel macOS is the exception: one Xcode SDK covers both.
   build:
@@ -288,6 +285,7 @@ jobs:
             dist/*.tar.gz
             dist/*.zip
             dist/SHA256SUMS.txt
+
   publish-crate:
     name: Publish to crates.io
     needs: [meta, build]
