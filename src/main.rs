@@ -1,5 +1,7 @@
 #![allow(unused)]
 
+use std::path::PathBuf;
+
 use clap::Parser;
 
 use crate::{
@@ -51,14 +53,18 @@ fn run(cli: Cli) -> Result<(), Error> {
         Err(err) => log::debug!("could not determine working directory: {err}"),
     }
 
-    // Relative values resolve against the working directory at run time.
-    let pack_root = crate::env::pack_root();
+    // Let's parse a few flags rights here, to make sure we catch them in time
+    let pack_root = match cli.path.as_ref() {
+        Some(path) => path.clone(),
+        None => PathBuf::from(".")
+            .canonicalize()
+            .unwrap_or(PathBuf::from(".")),
+    };
+
     log::debug!("pack root: \"{}\"", pack_root.display());
 
     let cache = Cache::load(CACHE_PATH)?;
-    // Sodium: AANobbMI (MR)
-    // JEI: 238222 (CF)
-    // let parser = TextParser::new("mr:AANobbMI:cache_id_here\ncf:238222:cache_id_here")?;
+
     let pw_parser = PackwizParser::load_from(pack_root)?;
     let app = App::new(cache, pw_parser);
 

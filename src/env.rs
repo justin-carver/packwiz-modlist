@@ -10,8 +10,6 @@ use std::{fmt, path::PathBuf};
 
 use crate::error::Error;
 
-/// Directory holding the packwiz pack.
-pub const PACK_ROOT: &str = "PACK_ROOT";
 pub const CF_API_KEY: &str = "CF_API_KEY";
 
 /// A value that must not reach logs, errors, or serialized output.
@@ -47,15 +45,6 @@ pub fn load_dotenv() {
         Ok(path) => log::debug!("loaded environment from \"{}\"", path.display()),
         Err(err) if err.not_found() => {}
         Err(err) => log::warn!("could not read .env: {err}"),
-    }
-}
-
-/// Defaults to the working directory, which is what a user in their pack
-/// folder expects.
-pub fn pack_root() -> PathBuf {
-    match std::env::var(PACK_ROOT) {
-        Ok(value) if !value.trim().is_empty() => PathBuf::from(value),
-        _ => PathBuf::from("."),
     }
 }
 
