@@ -90,12 +90,12 @@ fn main() {
 
     crate::env::load_dotenv();
 
-    // Commands & Subcommands
+    // Commands / Subcommands
     // Result of the most recently run subcommand
-    let result = match cli.command {
+    let result: anyhow::Result<()> = match cli.command {
         Some(Command::Config { path }) => args::config(path),
-        Some(Command::About) => args::about(),
-        None => run(cli).map_err(|err| err.to_string()),
+        Some(Command::About) => args::about(&mut std::io::stdout().lock()),
+        None => run(cli).map_err(anyhow::Error::from),
     };
 
     if let Err(err) = result {

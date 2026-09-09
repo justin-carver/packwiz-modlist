@@ -1,0 +1,13 @@
+---
+source: src/args.rs
+expression: rendered
+---
+
+  ⣿ sculkr ⣿
+  Companion CLI for packwiz
+
+  Version:     [VERSION]
+  Authors:     justin-carver
+  Description: Companion CLI for packwiz - generate modlists and track Minecraft modpack changes
+  Repository:  https://github.com/justin-carver/sculkr
+  License:     Apache-2.0

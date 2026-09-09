@@ -1,0 +1,3 @@
+# insta compares snapshots byte for byte, so a CRLF checkout would fail the
+# Windows job for reasons that have nothing to do with the code.
+*.snap text eol=lf

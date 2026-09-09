@@ -1,0 +1,63 @@
+---
+source: src/args.rs
+expression: help
+---
+A companion CLI application for packwiz that parses its output data to deliver advanced utility commands and extended features for Minecraft modpack development.
+
+Usage: sculkr [OPTIONS] [COMMAND]
+
+Commands:
+  about   Prints information about this program, including version, authors, and description
+  config  Print the sculkr configuration to stdout
+  help    Print this message or the help of the given subcommand(s)
+
+Options:
+  -v, --verbose...
+          Increase logging verbosity (-v, -vv, -vvv)
+
+  -q, --quiet
+          Suppress all non-error output
+
+  -p, --path <PATH>
+          The path to the packwiz root directory. [default: "[CWD]"]
+
+  -o, --output <PATH>
+          Sets a custom output path for the modlist [default: stdout]
+
+  -f, --format <FORMAT>
+          Sets a custom output format for the modlist.
+          
+          A string literal with {PLACEHOLDER} holes in it, one per field the cache holds.
+          Backslash escapes (\n, \t, \\, \{, \}) are resolved by sculkr rather than by
+          the shell, so quote the template and write \n where you want a line break.
+          
+          Placeholders with no value for a given mod (CurseForge sends no license,
+          Modrinth sends no authors) render as an empty string.
+          
+          Available placeholders:
+            {ID}           project id (Modrinth base62, CurseForge numeric)
+            {SLUG}         url slug, e.g. "sodium"
+            {NAME}         project title
+            {TITLE}        alias of {NAME}
+            {DESCRIPTION}  short description / summary
+            {DESC}         alias of {DESCRIPTION}
+            {URL}          project page on Modrinth/CurseForge
+            {ICON_URL}     project icon image
+            {SOURCE_URL}   source repository
+            {ISSUES_URL}   issue tracker
+            {WIKI_URL}     wiki / documentation
+            {LICENSE}      license name (Modrinth only)
+            {LICENSE_ID}   license id, e.g. "MIT"
+            {LICENSE_URL}  license text
+            {AUTHORS}      author names, or the owning organization, comma separated
+            {AUTHOR_URLS}  author pages, comma separated
+            {AUTHORS_MD}   authors as markdown links
+            {INDEX}        this mod's position in the list, starting at 1
+          
+          [default: - [{NAME}]({URL}) - {DESCRIPTION}\n]
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+  -V, --version
+          Print version

@@ -131,7 +131,7 @@ impl Verbosity {
 
 // Commands for clap arg parsing. Could move into its own src/command.rs, but with
 // this few options there is not much point yet.
-pub(crate) fn config(path: Option<PathBuf>) -> Result<(), String> {
+pub(crate) fn config(path: Option<PathBuf>) -> anyhow::Result<()> {
     match path {
         Some(path) => println!("Config would go here, pulled from: {}", path.display()),
         None => println!("Output resolving to None"),
@@ -139,25 +139,48 @@ pub(crate) fn config(path: Option<PathBuf>) -> Result<(), String> {
     Ok(())
 }
 
-pub(crate) fn about() -> Result<(), String> {
-    println!();
-    println!("  {} {} {}", "⣿".cyan(), "sculkr".bold().cyan(), "⣿".cyan());
-    println!("  {}", "Companion CLI for packwiz".dimmed());
-    println!();
-    println!("  {:<12} {}", "Version:".bold(), env!("CARGO_PKG_VERSION"));
-    println!("  {:<12} {}", "Authors:".bold(), env!("CARGO_PKG_AUTHORS"));
-    println!(
+pub(crate) fn about(out: &mut impl std::io::Write) -> anyhow::Result<()> {
+    writeln!(out)?;
+    writeln!(
+        out,
+        "  {} {} {}",
+        "⣿".cyan(),
+        "sculkr".bold().cyan(),
+        "⣿".cyan()
+    )?;
+    writeln!(out, "  {}", "Companion CLI for packwiz".dimmed())?;
+    writeln!(out)?;
+    writeln!(
+        out,
+        "  {:<12} {}",
+        "Version:".bold(),
+        env!("CARGO_PKG_VERSION")
+    )?;
+    writeln!(
+        out,
+        "  {:<12} {}",
+        "Authors:".bold(),
+        env!("CARGO_PKG_AUTHORS")
+    )?;
+    writeln!(
+        out,
         "  {:<12} {}",
         "Description:".bold(),
         env!("CARGO_PKG_DESCRIPTION")
-    );
-    println!(
+    )?;
+    writeln!(
+        out,
         "  {:<12} {}",
         "Repository:".bold(),
         env!("CARGO_PKG_REPOSITORY")
-    );
-    println!("  {:<12} {}", "License:".bold(), env!("CARGO_PKG_LICENSE"));
-    println!();
+    )?;
+    writeln!(
+        out,
+        "  {:<12} {}",
+        "License:".bold(),
+        env!("CARGO_PKG_LICENSE")
+    )?;
+    writeln!(out)?;
 
     Ok(())
 }
@@ -165,13 +188,141 @@ pub(crate) fn about() -> Result<(), String> {
 // Tests
 #[cfg(test)]
 mod tests {
+    use clap::CommandFactory;
+
     use super::*;
-    // TODO: Try to keep these sections up to date. Pretty important.
+
+    /// Builds the CLI and validates its definition on the way out.
+    ///
+    /// Test order is not guaranteed, so anything needing a validated `Command`
+    /// goes through here.
+    fn cli() -> clap::Command {
+        let cmd = Cli::command();
+        cmd.clone().debug_assert();
+        cmd
+    }
 
     /// Catches conflicting short flags, bad `conflicts_with` names, and other
     /// definition mistakes at test time instead of at the user's first run.
     #[test]
     fn cli_definition_is_valid() {
         Cli::command().debug_assert();
+    }
+
+    /// The shape of the CLI: which subcommands and flags exist.
+    ///
+    /// Here so that changing the surface has to be a deliberate act.
+    mod cli_surface {
+        use std::collections::BTreeSet;
+
+        use super::*;
+
+        /// Walks the command tree and records every subcommand and argument.
+        ///
+        /// clap creates `help` and `version` arguments on every command, so
+        /// those are skipped.
+        fn collect_surface(cmd: &clap::Command, prefix: &str, out: &mut BTreeSet<String>) {
+            for arg in cmd.get_arguments() {
+                if matches!(arg.get_id().as_str(), "help" | "version") {
+                    continue;
+                }
+                let id = arg.get_id().as_str();
+                if arg.is_positional() {
+                    out.insert(format!("{prefix}<{id}>"));
+                } else {
+                    out.insert(format!("{prefix}--{id}"));
+                }
+            }
+            for sub in cmd.get_subcommands() {
+                out.insert(format!("{prefix}{}", sub.get_name()));
+                collect_surface(sub, &format!("{prefix}{} ", sub.get_name()), out);
+            }
+        }
+
+        /// Adding a variant to [`Command`] breaks this match, which is the
+        /// reminder to extend `expected` below.
+        /// Don't add a default arm, or we'll fall through the test!
+        #[allow(dead_code)]
+        fn subcommands_are_exhaustive(c: &Command) {
+            match c {
+                Command::About | Command::Config { .. } => {}
+            }
+        }
+
+        #[test]
+        fn cli_surface_matches_expectations() {
+            let mut actual = BTreeSet::new();
+            collect_surface(&cli(), "", &mut actual);
+
+            // Do not add "help": clap synthesises that subcommand while building the
+            // command, and `cli()` hands back the un-built definition.
+            let expected: BTreeSet<String> = [
+                "about",
+                "config",
+                "config --path",
+                "--verbose",
+                "--quiet",
+                "--path",
+                "--output",
+                "--format",
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect();
+
+            let missing: Vec<_> = expected.difference(&actual).collect();
+            let unexpected: Vec<_> = actual.difference(&expected).collect();
+
+            assert!(
+                missing.is_empty() && unexpected.is_empty(),
+                "CLI surface changed, update this test.\n  \
+                 In the list but not in clap (removed or renamed?): {missing:?}\n  \
+                 In clap but not in the list (newly added?): {unexpected:?}",
+            );
+        }
+
+        /// Pins the whole `--help` render. Review changes with `cargo insta review`
+        ///
+        /// `term_width` is fixed because clap's `wrap_help` otherwise wraps to the
+        /// detected terminal width, which would make this snapshot machine-dependent
+        #[test]
+        fn help_snapshot() {
+            let help = cli().term_width(80).render_long_help().to_string();
+
+            // The --path help text interprets the canonicalised working directory,
+            // which differs on every machine. Masking only the quoted default
+            // leaves --format's own `[default: ...]`
+            insta::with_settings!({filters => vec![
+                (r#"\[default: "[^"]*"\]"#, r#"[default: "[CWD]"]"#),
+            ]}, {
+                insta::assert_snapshot!(help);
+            });
+        }
+    }
+
+    /// Tests for the commands themselves, no arg parsing.
+    ///
+    /// Arguably some of the most important tests, since they are the core
+    /// functionality of the program.
+    mod commands {
+        use super::*;
+
+        #[test]
+        fn about_command_outputs_expected() -> anyhow::Result<()> {
+            let mut buf = Vec::new();
+            about(&mut buf)?;
+            let rendered = String::from_utf8(buf)?;
+
+            // The version changes on release, and `colored` may add ANSI codes
+            // depending on the terminal. We strip those and normalize the version
+            // so the snapshot stays stable.
+            insta::with_settings!({filters => vec![
+                (r"\x1b\[[0-9;]*m", ""),
+                (r"\d+\.\d+\.\d+", "[VERSION]"),
+            ]}, {
+                insta::assert_snapshot!(rendered);
+            });
+            Ok(())
+        }
     }
 }
