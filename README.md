@@ -6,7 +6,7 @@
 [![CI](https://img.shields.io/github/actions/workflow/status/justin-carver/sculkr/ci.yml?branch=main&style=flat-square&logo=githubactions&logoColor=white&label=ci)](https://github.com/justin-carver/sculkr/actions/workflows/ci.yml)
 [![crates.io](https://img.shields.io/crates/v/sculkr?style=flat-square&logo=rust&logoColor=white&label=crates.io)](https://crates.io/crates/sculkr)
 [![release](https://img.shields.io/github/v/release/justin-carver/sculkr?style=flat-square&logo=github&label=release&sort=semver)](https://github.com/justin-carver/sculkr/releases/latest)
-[![msrv](https://img.shields.io/badge/MSRV-1.85%2B-b7410e?style=flat-square&logo=rust&logoColor=white)](https://github.com/justin-carver/sculkr/blob/main/Cargo.toml)
+[![msrv](https://img.shields.io/badge/MSRV-1.88%2B-b7410e?style=flat-square&logo=rust&logoColor=white)](https://github.com/justin-carver/sculkr/blob/main/Cargo.toml)
 [![platforms](https://img.shields.io/badge/platforms-linux%20%7C%20macOS%20%7C%20Windows-blue?style=flat-square)](https://github.com/justin-carver/sculkr/releases/latest)
 [![license](https://img.shields.io/crates/l/sculkr?style=flat-square&color=%23555)](https://github.com/justin-carver/sculkr/blob/main/LICENSE)
 
@@ -26,7 +26,7 @@ A companion CLI application for `packwiz` that parses its output data to deliver
 
 ## Installation
 
-Requires Rust **1.85** or newer (edition 2024).
+Requires Rust **1.88** or newer (edition 2024).
 
 ### From crates.io
 
