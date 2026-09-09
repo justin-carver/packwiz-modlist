@@ -1,12 +1,18 @@
-[![license](https://img.shields.io/github/license/justin-carver/sculkr)](https://github.com/justin-carver/sculkr/blob/main/LICENSE)
-
 # sculkr
+
+<center>
+<img src=".github/assets/sculk-chute.png" width="25%"/>
+
+[![CI](https://img.shields.io/github/actions/workflow/status/justin-carver/sculkr/ci.yml?branch=main&style=flat-square&logo=githubactions&logoColor=white&label=ci)](https://github.com/justin-carver/sculkr/actions/workflows/ci.yml)
+[![crates.io](https://img.shields.io/crates/v/sculkr?style=flat-square&logo=rust&logoColor=white&label=crates.io)](https://crates.io/crates/sculkr)
+[![release](https://img.shields.io/github/v/release/justin-carver/sculkr?style=flat-square&logo=github&label=release&sort=semver)](https://github.com/justin-carver/sculkr/releases/latest)
+[![msrv](https://img.shields.io/badge/MSRV-1.85%2B-b7410e?style=flat-square&logo=rust&logoColor=white)](https://github.com/justin-carver/sculkr/blob/main/Cargo.toml)
+[![platforms](https://img.shields.io/badge/platforms-linux%20%7C%20macOS%20%7C%20Windows-blue?style=flat-square)](https://github.com/justin-carver/sculkr/releases/latest)
+[![license](https://img.shields.io/crates/l/sculkr?style=flat-square&color=%23555)](https://github.com/justin-carver/sculkr/blob/main/LICENSE)
 
 A companion CLI application for `packwiz` that parses its output data to deliver advanced utility commands and extended features for Minecraft modpack development.
 
-Project originally forked from [Ricky12Awesome's:  packwiz-modlist](https://github.com/Ricky12Awesome/packwiz-modlist/). 
-
-I am currently going through the original `packwiz-modlist` args and attempting to port those over, changing functionality where it makes most sense, adding things here or there. If you have an idea, or would like something yourself, let me know!
+</center>
 
 ## Current Features
 
@@ -17,6 +23,59 @@ I am currently going through the original `packwiz-modlist` args and attempting 
     See the [Formatting](#Formatting) section for more information.
 
     **NOTE:** Will be implementing an `-o, --output` arg soon, but for now, piping content to a file works perfectly fine, e.g. `sculkr > modlist.md`.
+
+## Installation
+
+Requires Rust **1.85** or newer (edition 2024).
+
+### From crates.io
+
+```sh
+cargo install sculkr
+```
+
+### Prebuilt binaries
+
+Every tagged release ships archives for Linux, macOS, and Windows on the
+[releases page](https://github.com/justin-carver/sculkr/releases/latest) — x86_64 and
+aarch64 for Linux and macOS, x86_64 for Windows. Download the archive for your
+platform, extract it, and put `sculkr` somewhere on your `PATH`.
+
+Each release also carries `SHA256SUMS.txt` and a build provenance attestation:
+
+```sh
+# Checksums
+sha256sum --check --ignore-missing SHA256SUMS.txt
+
+# Provenance — proves the archive came from this repo's release workflow
+gh attestation verify sculkr-<version>-<target>.tar.gz --repo justin-carver/sculkr
+```
+
+### From source
+
+```sh
+git clone https://github.com/justin-carver/sculkr.git
+cd sculkr
+cargo install --path .
+```
+
+## Configuration
+
+`sculkr` reads its settings from the environment at run time, and loads a `.env`
+from the working directory if one is present. Copy [`.env.example`](.env.example)
+to `.env` to get started.
+
+| Variable | Required | Value |
+| --- | --- | --- |
+| `PACK_ROOT` | No | Directory holding your `*.pw.toml` files. Defaults to `.`, so running from inside the pack folder needs no configuration. |
+| `CF_API_KEY` | For CurseForge mods | A [CurseForge API key](https://console.curseforge.com/). Only requested when the pack actually contains CurseForge mods — a Modrinth-only pack never needs one. |
+
+Quote `CF_API_KEY` with **single** quotes. CurseForge keys are bcrypt-shaped
+(`$2a$10$...`) and dotenv expands `$VAR` inside double quotes, which silently
+truncates the key and earns you a `403` with an empty body.
+
+Nothing is read at compile time — `build.rs` fails the build if anything under
+`src/` tries — so no key can be baked into a published binary.
 
 ## Formatting
 
@@ -109,9 +168,16 @@ Just a small list of things I'd like to implement that would probably elevate th
 
 If you encounter any bugs, have questions, or notice areas for improvement, your feedback is highly welcome! Please feel free to open an issue to report problems or suggest enhancements. If you'd like to contribute directly, you can also submit a PR with your proposed fixes or updates, and I'll get to it when I can.
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for how to set up a development environment, what CI checks against, and how releases are cut.
+
+
 ---
 
-*sculkr began as a fork of [packwiz-modlist](https://github.com/Ricky12Awesome/packwiz-modlist)
+
+*<strong>sculkr</strong> began as a fork of [packwiz-modlist](https://github.com/Ricky12Awesome/packwiz-modlist)
 by Ricky12Awesome, rewritten and renamed with their consent ([discussion](https://github.com/Ricky12Awesome/packwiz-modlist/issues/4)).
-Large portions and functionality have been rewritten from the ground-up.
-Licensed under Apache-2.0; see [NOTICE](NOTICE).*
+Large portions and functionality have been rewritten from the ground-up, with more and more features being added monthly.*
+
+*I am currently going through the original `packwiz-modlist` args and attempting to port those over, changing functionality where it makes most sense, adding things here or there. If you have an idea, or would like something yourself, let me know!*
+
+*Licensed under Apache-2.0; see [NOTICE](NOTICE).*

@@ -37,8 +37,8 @@ const HELP_STYLES: Styles = Styles::styled()
   color = ColorChoice::Auto,
   styles = HELP_STYLES,
   version,
-  about = "Creates a modlist from packwiz",
-  long_about = "Utilizes the Modrinth and Curseforge API to output modlist information created via the packwiz CLI tool.",
+  about = "Companion CLI for packwiz - generate modlists and track Minecraft modpack changes",
+  long_about = "A companion CLI application for packwiz that parses its output data to deliver advanced utility commands and extended features for Minecraft modpack development.",
   propagate_version = true,
   // DEBUG TESTING
   // arg_required_else_help = true
@@ -128,7 +128,12 @@ pub(crate) fn config(path: Option<PathBuf>) -> Result<(), String> {
 pub(crate) fn about() -> Result<(), String> {
     let cargo_toml = include_str!("../Cargo.toml");
     if !cargo_toml.is_empty() {
-        let about_lines = cargo_toml.lines().skip(1).take(10);
+        // The whole [package] table, however long it grows -- a fixed line count
+        // silently drops fields as soon as a key is added to the manifest.
+        let about_lines = cargo_toml
+            .lines()
+            .skip(1)
+            .take_while(|line| !line.trim().is_empty());
         for line in about_lines {
             println!("{}", line)
         }

@@ -4,6 +4,7 @@ description = "Companion CLI for packwiz - generate modlists and track Minecraft
 authors = ["justin-carver"]
 version = "0.1.1"
 edition = "2024"
+rust-version = "1.85"
 license = "Apache-2.0"
 readme = "README.md"
 keywords = ["packwiz", "modpack", "minecraft", "curseforge", "modlist"]
