@@ -22,8 +22,6 @@ A companion CLI application for `packwiz` that parses its output data to deliver
 
     See the [Formatting](#Formatting) section for more information.
 
-    **NOTE:** Will be implementing an `-o, --output` arg soon, but for now, piping content to a file works perfectly fine, e.g. `sculkr > modlist.md`.
-
 ## Installation
 
 Requires Rust **1.88** or newer (edition 2024).
@@ -75,6 +73,34 @@ truncates the key and earns you a `403` with an empty body.
 
 Nothing is read at compile time — `build.rs` fails the build if anything under
 `src/` tries — so no key can be baked into a published binary.
+
+## Usage
+
+```sh
+# Print the modlist to stdout (default Markdown list format)
+sculkr
+
+# Change the path to something relative or absolute
+sculkr -p ~/modpack/mods
+
+# Write it to a file instead of stdout
+sculkr -p mods -o modlist.md
+
+# Apply a custom template, one mod per line
+sculkr -p mods -f '{INDEX}. {NAME} ({SLUG}) - {LICENSE_ID}\n'
+
+# Debug logging on stderr, modlist still outputs cleanly to file
+sculkr -p mods -vv -o modlist.md
+
+# Just the mod names, nothing else
+sculkr -p mods -q -f '{NAME}\n'
+
+# Version, authors, repository
+sculkr about
+```
+
+`-p` defaults to the current directory, so point it at wherever your `*.pw.toml`
+files live. Logs go to stderr, so a redirected or piped modlist stays clean.
 
 ## Formatting
 
