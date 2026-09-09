@@ -99,7 +99,7 @@ mod tests {
 /// counters, CDN markers, and which hop actually rejected the request.
 pub fn describe_headers(response: &minreq::Response) -> String {
   let mut headers: Vec<_> = response.headers.iter().collect();
-  headers.sort_by(|a, b| a.0.cmp(b.0));
+  headers.sort_by(|a, b| a.0.cmp(&b.0));
 
   headers
     .into_iter()

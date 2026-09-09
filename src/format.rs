@@ -4,6 +4,8 @@
 //! field the cache holds. It is parsed once up front so a typo fails before
 //! any network calls, and so rendering a few hundred mods is just appends.
 
+use serde_with::formats::Format;
+
 use crate::request::Mod;
 use std::borrow::Cow;
 use std::io::Write;
@@ -180,8 +182,8 @@ pub enum FormatError {
   #[error("unclosed \"{{\" at position {0} in the format string")]
   Unclosed(usize),
   #[error(
-    "unknown placeholder \"{{{0}}}\" in the format string\nAvailable placeholders:\n{}",
-    placeholder_help()
+    "unknown placeholder \"{{{0}}}\" in the format string\nAvailable placeholders:\n{help}",
+    help = placeholder_help()
   )]
   UnknownPlaceholder(String),
   #[error("unknown escape \"\\{0}\" in the format string; use \\\\ for a literal backslash")]

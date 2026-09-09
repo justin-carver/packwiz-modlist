@@ -48,7 +48,7 @@ impl From<minreq::Response> for Error {
     // is exactly when the body matters, and debug-level logs are invisible at
     // the default verbosity.
     let body = crate::request::describe_body(&req);
-    Self::Response(req.status_code, message, body)
+    Self::Response(req.status_code.into(), message, body)
   }
 }
 
