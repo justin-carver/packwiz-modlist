@@ -4,7 +4,7 @@
 
 A companion CLI application for `packwiz` that parses its output data to deliver advanced utility commands and extended features for Minecraft modpack development.
 
-Project originally forked from [Ricky12Awesome's:  packwiz-modlist](https://github.com/Ricky12Awesome/packwiz-modlist/). **(Thanks Ricky!!)** Large portions and functionality have been rewritten from the ground-up, though original code from the `rewrite` branch exists as a foundation for the core of the app.
+Project originally forked from [Ricky12Awesome's:  packwiz-modlist](https://github.com/Ricky12Awesome/packwiz-modlist/). 
 
 I am currently going through the original `packwiz-modlist` args and attempting to port those over, changing functionality where it makes most sense, adding things here or there. If you have an idea, or would like something yourself, let me know!
 
@@ -105,14 +105,13 @@ Just a small list of things I'd like to implement that would probably elevate th
 5. Bulk Edit / Bulk Modify mods based on regular expressions
 6. (Idk if this can be done???) Ability to hook into log files and determine what mods/deps caused previous crashes.
 
-## Issues
+## Issues & Contributions
 
 If you encounter any bugs, have questions, or notice areas for improvement, your feedback is highly welcome! Please feel free to open an issue to report problems or suggest enhancements. If you'd like to contribute directly, you can also submit a PR with your proposed fixes or updates, and I'll get to it when I can.
 
 ---
 
-#### NOTICE / ATTRIBUTION
-
 *sculkr began as a fork of [packwiz-modlist](https://github.com/Ricky12Awesome/packwiz-modlist)
-by Ricky12Awesome, rewritten and renamed with his consent ([discussion](https://github.com/Ricky12Awesome/packwiz-modlist/issues/4)).
+by Ricky12Awesome, rewritten and renamed with their consent ([discussion](https://github.com/Ricky12Awesome/packwiz-modlist/issues/4)).
+Large portions and functionality have been rewritten from the ground-up.
 Licensed under Apache-2.0; see [NOTICE](NOTICE).*
