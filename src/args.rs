@@ -53,6 +53,15 @@ pub(crate) struct Cli {
     #[arg(short, long, global = true)]
     pub(crate) quiet: bool,
 
+    #[clap(
+        short,
+        long,
+        global = true,
+        value_name = "PATH",
+        help = format!("The path to the packwiz root directory. [default: {:?}]", PathBuf::from(".").canonicalize().unwrap_or(PathBuf::from("."))),
+    )]
+    pub(crate) path: Option<PathBuf>,
+
     /// Sets a custom output format for the modlist
     ///
     /// A string literal with {PLACEHOLDER} holes in it, one per field the cache

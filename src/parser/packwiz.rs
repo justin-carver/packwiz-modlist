@@ -84,10 +84,7 @@ impl PackwizParser {
         );
 
         if parsed_mods.is_empty() {
-            log::warn!(
-                "no *.pw.toml files found in \"{}\" -- is PACK_ROOT pointing at your packwiz mods directory?",
-                resolved.display()
-            );
+            log::warn!("no *.pw.toml files found in \"{}\"", resolved.display());
         }
 
         let modrinth_mods = parsed_mods
