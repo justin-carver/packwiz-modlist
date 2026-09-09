@@ -8,10 +8,6 @@ Project originally forked from [Ricky12Awesome's:  packwiz-modlist](https://gith
 
 I am currently going through the original `packwiz-modlist` args and attempting to port those over, changing functionality where it makes most sense, adding things here or there. If you have an idea, or would like something yourself, let me know!
 
-### Background
-
-I've been working on a modpack using `packwiz` for the last few weeks, and having access to the original `packwiz-modlist` repo has been a life-saver when it comes to automatically managing modlist files and content for READMEs when refreshing/indexing mods. After a while, I started running into issues and I really wanted to add more functionality, but seeing as the last update was over 2-4 years ago, and a rewrite was stopped half-way, I decided to take up the mantle to continue the rewrite, using this repo as a starting point and expand on features that (to be quite honest) the base version of `packwiz` should have.
-
 ## Current Features
 
 - Creates a **Minecraft** modlist from [packwiz](https://packwiz.infra.link/). 
@@ -112,3 +108,11 @@ Just a small list of things I'd like to implement that would probably elevate th
 ## Issues
 
 If you encounter any bugs, have questions, or notice areas for improvement, your feedback is highly welcome! Please feel free to open an issue to report problems or suggest enhancements. If you'd like to contribute directly, you can also submit a PR with your proposed fixes or updates, and I'll get to it when I can.
+
+---
+
+#### NOTICE / ATTRIBUTION
+
+*sculkr began as a fork of [packwiz-modlist](https://github.com/Ricky12Awesome/packwiz-modlist)
+by Ricky12Awesome, rewritten and renamed with his consent ([discussion](https://github.com/Ricky12Awesome/packwiz-modlist/issues/4)).
+Licensed under Apache-2.0; see [NOTICE](NOTICE).*
