@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ReleaseDate
 
+### Added
+
+- Added instructions on how to install via `cargo`, build from source, or locate prebuilt binaries once they are introduced (hopefully very soon!)
+
+### Fixed
+
+- Updated `src/args.rs` to include new description information relating to the new branding of sculkr.
+- Updated information in README.md to make more sense to new users, added project icon image, README badges, fixed overall layout of README.
+
 ## [0.1.1] - 2026-09-09
 
 <!-- next-url -->
