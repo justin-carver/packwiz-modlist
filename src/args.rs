@@ -7,6 +7,7 @@ use clap::{
     ArgAction, Args, ColorChoice, CommandFactory, Parser, Subcommand, ValueEnum,
     builder::{Styles, styling::AnsiColor},
 };
+use colored::Colorize;
 
 /// Built from the placeholder table so `--help` can never drift from what the
 /// formatter actually accepts.
@@ -126,19 +127,25 @@ pub(crate) fn config(path: Option<PathBuf>) -> Result<(), String> {
 }
 
 pub(crate) fn about() -> Result<(), String> {
-    let cargo_toml = include_str!("../Cargo.toml");
-    if !cargo_toml.is_empty() {
-        // The whole [package] table, however long it grows -- a fixed line count
-        // silently drops fields as soon as a key is added to the manifest.
-        let about_lines = cargo_toml
-            .lines()
-            .skip(1)
-            .take_while(|line| !line.trim().is_empty());
-        for line in about_lines {
-            println!("{}", line)
-        }
-    }
-    std::process::exit(1);
+    println!();
+    println!("  {} {} {}", "⣿".cyan(), "sculkr".bold().cyan(), "⣿".cyan());
+    println!("  {}", "Companion CLI for packwiz".dimmed());
+    println!();
+    println!("  {:<12} {}", "Version:".bold(), env!("CARGO_PKG_VERSION"));
+    println!("  {:<12} {}", "Authors:".bold(), env!("CARGO_PKG_AUTHORS"));
+    println!(
+        "  {:<12} {}",
+        "Description:".bold(),
+        env!("CARGO_PKG_DESCRIPTION")
+    );
+    println!(
+        "  {:<12} {}",
+        "Repository:".bold(),
+        env!("CARGO_PKG_REPOSITORY")
+    );
+    println!("  {:<12} {}", "License:".bold(), env!("CARGO_PKG_LICENSE"));
+    println!();
+
     Ok(())
 }
 
