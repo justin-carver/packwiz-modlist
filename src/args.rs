@@ -62,6 +62,10 @@ pub(crate) struct Cli {
     )]
     pub(crate) path: Option<PathBuf>,
 
+    #[clap(short, long, global = true, value_name = "PATH")]
+    /// Sets a custom output path for the modlist [default: stdout]
+    pub(crate) output: Option<PathBuf>,
+
     /// Sets a custom output format for the modlist
     ///
     /// A string literal with {PLACEHOLDER} holes in it, one per field the cache
@@ -86,7 +90,7 @@ pub(crate) struct Cli {
 #[derive(Debug, Subcommand)]
 pub(crate) enum Command {
     // TODO: This needs to be done differently, probably hardcoded.
-    /// Prints information about this program, including version, authors, and description.
+    /// Prints information about this program, including version, authors, and description
     About,
     /// Print the sculkr configuration to stdout
     Config {

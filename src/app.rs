@@ -1,6 +1,7 @@
 use std::{
     cell::{RefCell, RefMut},
     collections::{HashMap, HashSet},
+    fs::File,
     io::{BufWriter, Write},
 };
 
@@ -150,16 +151,28 @@ impl App {
         let formatter = Formatter::new(&cli.format)?;
         let mods = self.sorted_mods()?;
 
+        // Treat `--output ""` the same as not passing any content to arg, i.e. skip this.
+        let output_path = cli
+            .output
+            .as_ref()
+            .filter(|path| !path.as_os_str().is_empty());
+
         // One locked, buffered handle: a few hundred mods would otherwise be a few
         // hundred lock-and-flush cycles.
-        let stdout = std::io::stdout();
-        let mut out = BufWriter::new(stdout.lock());
+        let mut out: BufWriter<Box<dyn Write>> = match output_path {
+            Some(path) => BufWriter::new(Box::new(File::create(path)?)),
+            None => BufWriter::new(Box::new(std::io::stdout().lock())),
+        };
 
         formatter.write_all(&mut out, &mods)?;
 
         out.flush()?;
 
-        log::info!("listed {} mod(s)", mods.len());
+        match output_path {
+            Some(path) => log::info!("wrote {} mod(s) to {}", mods.len(), path.display()),
+            None => log::info!("listed {} mod(s)", mods.len()),
+        }
+
         Ok(())
     }
 
