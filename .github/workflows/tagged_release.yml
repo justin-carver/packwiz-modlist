@@ -92,7 +92,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@nightly
         with:
           components: rustfmt, clippy
 
@@ -102,7 +102,7 @@ jobs:
           key: lint
 
       - name: Check formatting
-        run: cargo fmt +nightly --all --check
+        run: cargo +nightly fmt --all --check
 
       - name: Clippy
         run: cargo clippy --locked --all-targets --all-features -- -D warnings
@@ -209,7 +209,7 @@ jobs:
           mkdir -p "$staging"
 
           cp "target/${TARGET}/release/${BINARY_NAME}${EXT}" "$staging/"
-          cp README.md LICENSE "$staging/"
+          cp README.md LICENSE NOTICE "$staging/"
 
           cd dist
           if [[ "$TARGET" == *windows* ]]; then
