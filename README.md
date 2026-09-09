@@ -97,6 +97,9 @@ sculkr -p mods -q -f '{NAME}\n'
 
 # Version, authors, repository
 sculkr about
+
+# View runtime information about sculkr and the modpack
+sculkr config
 ```
 
 `-p` defaults to the current directory, so point it at wherever your `*.pw.toml`

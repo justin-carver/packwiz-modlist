@@ -93,7 +93,7 @@ fn main() {
     // Commands / Subcommands
     // Result of the most recently run subcommand
     let result: anyhow::Result<()> = match cli.command {
-        Some(Command::Config { path }) => args::config(path),
+        Some(Command::Config) => args::config(&mut std::io::stdout().lock(), &cli),
         Some(Command::About) => args::about(&mut std::io::stdout().lock()),
         None => run(cli).map_err(anyhow::Error::from),
     };

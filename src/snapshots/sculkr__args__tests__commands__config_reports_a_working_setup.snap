@@ -1,0 +1,15 @@
+---
+source: src/args.rs
+expression: rendered
+---
+
+  ⣿ sculkr ⣿
+  Runtime Configuration
+
+  Pack root:   /home/user/modpack
+  Mods:        47 (32 Modrinth, 15 CurseForge)
+  Cache:       /home/user/modpack/.packwiz-modlist.cache.json (38 cached)
+  CF_API_KEY:  $2a$...e345
+  Output:      modlist.md
+  Format:      - [{NAME}]({URL}) - {DESCRIPTION}\n
+  Log level:   info

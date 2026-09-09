@@ -24,6 +24,22 @@ impl Secret {
     pub fn expose(&self) -> &str {
         &self.0
     }
+
+    /// The first and last few characters, e.g. `$2a$...e345`.
+    pub fn fingerprint(&self) -> String {
+        const KEEP: usize = 4;
+
+        let chars: Vec<char> = self.0.chars().collect();
+
+        if chars.len() < KEEP * 3 {
+            return "<redacted>".to_owned();
+        }
+
+        let head: String = chars[..KEEP].iter().collect();
+        let tail: String = chars[chars.len() - KEEP..].iter().collect();
+
+        format!("{head}...{tail}")
+    }
 }
 
 impl fmt::Debug for Secret {
@@ -66,5 +82,19 @@ mod tests {
         assert_eq!(format!("{secret}"), "<redacted>");
         assert_eq!(format!("{secret:?}"), "Secret(<redacted>)");
         assert_eq!(secret.expose(), "hunter2");
+    }
+
+    #[test]
+    fn a_fingerprint_shows_only_the_ends_of_a_long_value() {
+        let secret = Secret("$2a$10$abcdefghijklmnope345".to_owned());
+
+        assert_eq!(secret.fingerprint(), "$2a$...e345");
+    }
+
+    /// Four characters off each end of a short value is most of the value.
+    #[test]
+    fn a_short_value_is_not_fingerprinted_at_all() {
+        assert_eq!(Secret("hunter2".to_owned()).fingerprint(), "<redacted>");
+        assert_eq!(Secret(String::new()).fingerprint(), "<redacted>");
     }
 }

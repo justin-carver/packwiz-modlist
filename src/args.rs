@@ -93,11 +93,7 @@ pub(crate) enum Command {
     /// Prints information about this program, including version, authors, and description
     About,
     /// Print the sculkr configuration to stdout
-    Config {
-        #[arg(short, long, value_name = "PATH")]
-        /// The config file path [default: ../]
-        path: Option<PathBuf>,
-    },
+    Config,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -129,17 +125,7 @@ impl Verbosity {
     }
 }
 
-// Commands for clap arg parsing. Could move into its own src/command.rs, but with
-// this few options there is not much point yet.
-pub(crate) fn config(path: Option<PathBuf>) -> anyhow::Result<()> {
-    match path {
-        Some(path) => println!("Config would go here, pulled from: {}", path.display()),
-        None => println!("Output resolving to None"),
-    }
-    Ok(())
-}
-
-pub(crate) fn about(out: &mut impl std::io::Write) -> anyhow::Result<()> {
+fn write_fancy_header(out: &mut dyn std::io::Write, subtitle: &str) -> anyhow::Result<()> {
     writeln!(out)?;
     writeln!(
         out,
@@ -148,8 +134,146 @@ pub(crate) fn about(out: &mut impl std::io::Write) -> anyhow::Result<()> {
         "sculkr".bold().cyan(),
         "⣿".cyan()
     )?;
-    writeln!(out, "  {}", "Companion CLI for packwiz".dimmed())?;
+    writeln!(out, "  {}", subtitle.dimmed())?;
     writeln!(out)?;
+    Ok(())
+}
+
+/// What `config` reports, read once before any of it is rendered.
+///
+/// Every field that can fail holds that failure instead of returning it. A
+/// missing key or an unreadable pack directory is the most useful thing this
+/// command has to say, so it is a line in the output, not a reason to bail.
+struct Runtime {
+    pack_root: PathBuf,
+    /// Modrinth and CurseForge counts, or `None` when there is no pack to read.
+    mods: Option<(usize, usize)>,
+    cache: PathBuf,
+    cache_entries: Option<usize>,
+    api_key: Option<String>,
+    output: Option<PathBuf>,
+    format: String,
+    verbosity: Verbosity,
+}
+
+impl Runtime {
+    fn gather(cli: &Cli) -> Self {
+        let pack_root = crate::util::resolve_for_display(
+            cli.path.clone().unwrap_or_else(|| PathBuf::from(".")),
+        );
+
+        let cache = crate::util::resolve_for_display(crate::CACHE_PATH);
+
+        // An absent cache file and an unreadable one both read as "nothing to
+        // report", and `Cache::load` already logs which of the two it was.
+        let cache_entries = crate::cache::Cache::load(&cache)
+            .ok()
+            .filter(|_| cache.exists())
+            .map(|cache| cache.get_data().len());
+
+        Self {
+            mods: crate::parser::packwiz::PackwizParser::load_from(&pack_root)
+                .ok()
+                .map(|pack| (pack.modrinth_mods.len(), pack.curseforge_mods.len()))
+                // A directory we cannot read and one with nothing in it have the
+                // same answer, and it is not a green zero.
+                .filter(|(modrinth, curseforge)| modrinth + curseforge > 0),
+            pack_root,
+            cache,
+            cache_entries,
+            api_key: crate::env::curseforge_api_key()
+                .ok()
+                .map(|key| key.fingerprint()),
+            output: cli.output.clone(),
+            format: cli.format.clone(),
+            verbosity: Verbosity::resolve(cli.verbose, cli.quiet),
+        }
+    }
+}
+
+/// Outputs the current runtime configuration of the program.
+pub(crate) fn config(out: &mut dyn std::io::Write, cli: &Cli) -> anyhow::Result<()> {
+    render_config(out, &Runtime::gather(cli))
+}
+
+/// Split from [`config`] so the layout can be tested without a pack, a cache,
+/// or a key in the environment. Yay, testing!
+fn render_config(out: &mut dyn std::io::Write, rt: &Runtime) -> anyhow::Result<()> {
+    write_fancy_header(out, "Runtime Configuration");
+
+    writeln!(
+        out,
+        "  {:<12} {}",
+        "Pack root:".bold(),
+        rt.pack_root.display()
+    )?;
+
+    match rt.mods {
+        Some((modrinth, curseforge)) => writeln!(
+            out,
+            "  {:<12} {} ({modrinth} Modrinth, {curseforge} CurseForge)",
+            "Mods:".bold(),
+            (modrinth + curseforge).to_string().green()
+        )?,
+        None => writeln!(
+            out,
+            "  {:<12} {}",
+            "Mods:".bold(),
+            "no *.pw.toml files found here".yellow()
+        )?,
+    }
+
+    match rt.cache_entries {
+        Some(entries) => writeln!(
+            out,
+            "  {:<12} {} ({entries} cached)",
+            "Cache:".bold(),
+            rt.cache.display()
+        )?,
+        None => writeln!(
+            out,
+            "  {:<12} {} {}",
+            "Cache:".bold(),
+            rt.cache.display(),
+            "(not written yet)".dimmed()
+        )?,
+    }
+
+    match &rt.api_key {
+        Some(fingerprint) => writeln!(
+            out,
+            "  {:<12} {}",
+            format!("{}:", crate::env::CF_API_KEY).bold(),
+            fingerprint.green()
+        )?,
+        None => writeln!(
+            out,
+            "  {:<12} {} {}",
+            format!("{}:", crate::env::CF_API_KEY).bold(),
+            "not set".yellow(),
+            "(CurseForge mods will fail)".dimmed()
+        )?,
+    }
+
+    writeln!(out, "  {:<12} {}", "Output:".bold(), match &rt.output {
+        Some(path) => path.display().to_string(),
+        None => "stdout".to_owned(),
+    })?;
+    writeln!(out, "  {:<12} {}", "Format:".bold(), rt.format)?;
+    writeln!(
+        out,
+        "  {:<12} {}",
+        "Log level:".bold(),
+        rt.verbosity.to_level_filter().to_string().to_lowercase()
+    )?;
+    writeln!(out)?;
+
+    Ok(())
+}
+
+pub(crate) fn about(out: &mut dyn std::io::Write) -> anyhow::Result<()> {
+    write_fancy_header(out, &format!("Companion CLI for {}", "packwiz".yellow()));
+
     writeln!(
         out,
         "  {:<12} {}",
@@ -245,7 +369,7 @@ mod tests {
         #[allow(dead_code)]
         fn subcommands_are_exhaustive(c: &Command) {
             match c {
-                Command::About | Command::Config { .. } => {}
+                Command::About | Command::Config => {}
             }
         }
 
@@ -259,7 +383,6 @@ mod tests {
             let expected: BTreeSet<String> = [
                 "about",
                 "config",
-                "config --path",
                 "--verbose",
                 "--quiet",
                 "--path",
@@ -320,6 +443,53 @@ mod tests {
                 (r"\x1b\[[0-9;]*m", ""),
                 (r"\d+\.\d+\.\d+", "[VERSION]"),
             ]}, {
+                insta::assert_snapshot!(rendered);
+            });
+            Ok(())
+        }
+
+        /// `Runtime` is built by hand so the layout is pinned without a pack, a
+        /// cache, or a key on the machine running the test.
+        fn render(rt: &Runtime) -> anyhow::Result<String> {
+            let mut buf = Vec::new();
+            render_config(&mut buf, rt)?;
+            Ok(String::from_utf8(buf)?)
+        }
+
+        #[test]
+        fn config_reports_a_working_setup() -> anyhow::Result<()> {
+            let rendered = render(&Runtime {
+                pack_root: PathBuf::from("/home/user/modpack"),
+                mods: Some((32, 15)),
+                cache: PathBuf::from("/home/user/modpack/.packwiz-modlist.cache.json"),
+                cache_entries: Some(38),
+                api_key: Some("$2a$...e345".to_owned()),
+                output: Some(PathBuf::from("modlist.md")),
+                format: crate::format::DEFAULT_FORMAT.to_owned(),
+                verbosity: Verbosity::Info,
+            })?;
+
+            insta::with_settings!({filters => vec![(r"\x1b\[[0-9;]*m", "")]}, {
+                insta::assert_snapshot!(rendered);
+            });
+            Ok(())
+        }
+
+        /// Nothing set up yet, which is the run where this command is worth having.
+        #[test]
+        fn config_reports_what_is_missing() -> anyhow::Result<()> {
+            let rendered = render(&Runtime {
+                pack_root: PathBuf::from("/home/user"),
+                mods: None,
+                cache: PathBuf::from("/home/user/.packwiz-modlist.cache.json"),
+                cache_entries: None,
+                api_key: None,
+                output: None,
+                format: crate::format::DEFAULT_FORMAT.to_owned(),
+                verbosity: Verbosity::Normal,
+            })?;
+
+            insta::with_settings!({filters => vec![(r"\x1b\[[0-9;]*m", "")]}, {
                 insta::assert_snapshot!(rendered);
             });
             Ok(())
