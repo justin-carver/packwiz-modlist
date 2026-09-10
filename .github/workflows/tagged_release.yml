@@ -84,6 +84,21 @@ jobs:
             echo "| Publishes a GitHub release | \`$publish\` |"
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Check the changelog has notes for this version
+        if: steps.resolve.outputs.publish == 'true'
+        shell: bash
+        env:
+          VERSION: ${{ steps.resolve.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          # Fail here rather than after the builds have run and crates.io has
+          # already published, which cannot be undone.
+          if ! scripts/release-notes.sh "$VERSION" >/dev/null; then
+            echo "::error file=CHANGELOG.md::CHANGELOG.md has no notes under [${VERSION}]. Fix the entry, move the tag, and push again."
+            exit 1
+          fi
+
   lint:
     name: Lint (fmt, clippy, docs)
     runs-on: ubuntu-latest
@@ -288,16 +303,8 @@ jobs:
 
           # Everything from this version's heading down to the next one. GitHub
           # appends its own generated commit list below whatever body we pass.
-          awk -v ver="$VERSION" '
-            index($0, "## [" ver "]") == 1 { grab = 1; next }
-            grab && /^## \[/ { exit }
-            grab { print }
-          ' CHANGELOG.md | sed -e '/./,$!d' > release-notes.md
-
-          if [[ ! -s release-notes.md ]]; then
-            echo "::error file=CHANGELOG.md::No [${VERSION}] section found in CHANGELOG.md"
-            exit 1
-          fi
+          # The metadata job already proved this section is non-empty.
+          scripts/release-notes.sh "$VERSION" > release-notes.md
 
           {
             echo "### Release notes"
@@ -323,7 +330,7 @@ jobs:
 
   publish-crate:
     name: Publish to crates.io
-    needs: [meta, build]
+    needs: [meta, build, release]
     if: needs.meta.outputs.publish == 'true' && needs.meta.outputs.prerelease == 'false'
     runs-on: ubuntu-latest
     environment: crates-io

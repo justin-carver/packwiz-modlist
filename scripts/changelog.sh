@@ -35,9 +35,14 @@ fi
 
 # Leading blank lines would otherwise push the heading away from the marker.
 section="$(git-cliff --config cliff.toml --unreleased --tag "$tag" | sed -e '/./,$!d')"
-if [[ -z "${section//[[:space:]]/}" ]]; then
-    echo "git-cliff found no changelog-worthy commits since the last tag." >&2
-    exit 1
+
+# git-cliff always emits the version heading, so a release whose commits were all
+# skipped (ci, chore, build, test) comes back as a heading and nothing under it.
+# That is a legitimate maintenance bump, but it has to say so: an empty section
+# would leave the GitHub release with no body at all.
+if ! printf '%s\n' "$section" | grep -q '^### '; then
+    section="${section}"$'\n\n'"_Maintenance release. No user-facing changes; see the commit log for build, CI and tooling work._"
+    echo "No user-facing commits since the last tag; writing a maintenance-release note." >&2
 fi
 
 if [[ "${DRY_RUN:-false}" == "true" ]]; then

@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.2.1] - 2026-09-09
 
+_Maintenance release. No user-facing changes; see the commit log for build, CI and tooling work._
+
 ## [0.2.0] - 2026-09-09
 
 ### Added
