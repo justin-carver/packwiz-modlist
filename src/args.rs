@@ -66,6 +66,11 @@ pub(crate) struct Cli {
     /// Sets a custom output path for the modlist [default: stdout]
     pub(crate) output: Option<PathBuf>,
 
+    // TODO: Feels a little weird to have -f and -F, should these be changed?
+    #[clap(short = 'F', long, global = true)]
+    /// Forcibily overwrite a specified output file
+    pub(crate) force: bool,
+
     /// Sets a custom output format for the modlist
     ///
     /// A string literal with {PLACEHOLDER} holes in it, one per field the cache
@@ -459,6 +464,7 @@ mod tests {
                 "--path",
                 "--output",
                 "--format",
+                "--force",
             ]
             .into_iter()
             .map(String::from)

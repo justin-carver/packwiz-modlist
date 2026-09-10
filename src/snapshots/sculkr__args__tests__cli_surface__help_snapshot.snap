@@ -24,6 +24,9 @@ Options:
   -o, --output <PATH>
           Sets a custom output path for the modlist [default: stdout]
 
+  -F, --force
+          Forcibily overwrite a specified output file
+
   -f, --format <FORMAT>
           Sets a custom output format for the modlist.
           

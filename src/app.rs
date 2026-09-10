@@ -5,6 +5,8 @@ use std::{
     io::{BufWriter, Write},
 };
 
+use colored::Colorize;
+
 use crate::{
     Cache, Error, Mod,
     args::Cli,
@@ -96,7 +98,7 @@ impl App {
                         cache.set_mod(id, m.clone());
                         mods.push(m);
                     }
-                    // An id we never asked for should not take the whole run down.
+                    // An id we ne% asked for should not take the whole run down.
                     None => {
                         log::warn!(
                             "Modrinth returned unrequested project \"{}\"; ignoring",
@@ -161,7 +163,8 @@ impl App {
         let output_path = cli
             .output
             .as_ref()
-            .filter(|path| !path.as_os_str().is_empty());
+            // If force is [None], only proceed if the file does NOT already exist (and isn't empty).
+            .filter(|path| cli.force.eq(&true) || (!path.exists() && !path.as_os_str().is_empty()));
 
         // One locked, buffered handle: a few hundred mods would otherwise be a few
         // hundred lock-and-flush cycles.
@@ -176,7 +179,23 @@ impl App {
 
         match output_path {
             Some(path) => log::info!("wrote {} mod(s) to {}", mods.len(), path.display()),
-            None => log::info!("listed {} mod(s)", mods.len()),
+            None => {
+                writeln!(
+                    out,
+                    "{}",
+                    "\nSpecified output path (-o) is not empty. Dumping modpack contents to stdout.\nConsider using '--force' to overwrite existing file.\n"
+                        .magenta()
+                )?;
+                if let Some(path) = cli.output.as_ref() {
+                    writeln!(
+                        out,
+                        "{} {}",
+                        String::from("Attempted to write to file: ").magenta(),
+                        path.to_string_lossy().cyan(),
+                    )?;
+                }
+                log::info!("listed {} mod(s)", mods.len())
+            }
         }
 
         Ok(())
