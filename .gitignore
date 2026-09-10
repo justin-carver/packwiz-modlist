@@ -1,5 +1,5 @@
 # sculkr
-/test_packwiz
+test/
 .packwiz-modlist.cache.json
 .sculkr.cache.json
 .env
