@@ -166,12 +166,9 @@ fn write_fancy_header(out: &mut dyn std::io::Write, subtitle: &str) -> anyhow::R
 fn write_fancy_divider(out: &mut dyn std::io::Write, title: &str) -> anyhow::Result<()> {
     writeln!(
         out,
-        "{}",
-        format!(
-            "\n┏━ {} ━━━━━━━━━━━━━━━╾──────────────┈┈┈┈┈┈┈┈┈┈┈┈\n",
-            format!("▓▒░ {} ░▒▓", title).black().bold().on_bright_cyan()
-        )
-    );
+        "\n┏━ {} ━━━━━━━━━━━━━━━╾──────────────┈┈┈┈┈┈┈┈┈┈┈┈\n",
+        format!("▓▒░ {} ░▒▓", title).black().bold().on_bright_cyan()
+    )?;
     Ok(())
 }
 
