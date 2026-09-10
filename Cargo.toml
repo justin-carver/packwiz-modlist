@@ -22,35 +22,9 @@ tag-name = "v{{version}}"
 tag-message = "sculkr {{version}}"
 pre-release-commit-message = "release v{{version}}"
 
-[[package.metadata.release.pre-release-replacements]]
-file = "CHANGELOG.md"
-search = "Unreleased"
-replace = "{{version}}"
-min = 1
-
-[[package.metadata.release.pre-release-replacements]]
-file = "CHANGELOG.md"
-search = "\\.\\.\\.HEAD"
-replace = "...{{tag_name}}"
-exactly = 1
-
-[[package.metadata.release.pre-release-replacements]]
-file = "CHANGELOG.md"
-search = "ReleaseDate"
-replace = "{{date}}"
-min = 1
-
-[[package.metadata.release.pre-release-replacements]]
-file = "CHANGELOG.md"
-search = "<!-- next-header -->"
-replace = "<!-- next-header -->\n\n## [Unreleased] - ReleaseDate"
-exactly = 1
-
-[[package.metadata.release.pre-release-replacements]]
-file = "CHANGELOG.md"
-search = "<!-- next-url -->"
-replace = "<!-- next-url -->\n[Unreleased]: https://github.com/justin-carver/sculkr/compare/{{tag_name}}...HEAD"
-exactly = 1
+# CHANGELOG.md is generated from commit history by git-cliff rather than patched
+# with search-and-replace. The hook reads NEW_VERSION out of the environment.
+pre-release-hook = ["scripts/changelog.sh"]
 
 [[bin]]
 name = "sculkr"

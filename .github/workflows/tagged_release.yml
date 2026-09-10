@@ -251,6 +251,9 @@ jobs:
       id-token: write # provenance attestation
       attestations: write
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Download all archives
         uses: actions/download-artifact@v4
         with:
@@ -276,11 +279,38 @@ jobs:
         with:
           subject-path: dist/*.tar.gz, dist/*.zip
 
+      - name: Extract release notes from CHANGELOG
+        shell: bash
+        env:
+          VERSION: ${{ needs.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          # Everything from this version's heading down to the next one. GitHub
+          # appends its own generated commit list below whatever body we pass.
+          awk -v ver="$VERSION" '
+            index($0, "## [" ver "]") == 1 { grab = 1; next }
+            grab && /^## \[/ { exit }
+            grab { print }
+          ' CHANGELOG.md | sed -e '/./,$!d' > release-notes.md
+
+          if [[ ! -s release-notes.md ]]; then
+            echo "::error file=CHANGELOG.md::No [${VERSION}] section found in CHANGELOG.md"
+            exit 1
+          fi
+
+          {
+            echo "### Release notes"
+            echo ""
+            cat release-notes.md
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.meta.outputs.tag }}
           name: ${{ env.BINARY_NAME }} ${{ needs.meta.outputs.tag }}
+          body_path: release-notes.md
           draft: false
           prerelease: ${{ needs.meta.outputs.prerelease }}
           make_latest: ${{ needs.meta.outputs.prerelease == 'false' }}

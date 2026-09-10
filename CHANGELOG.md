@@ -5,13 +5,11 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
 <!-- next-header -->
 
-## [Unreleased] - ReleaseDate
-
-## [0.2.0] - 2026-09-10
-
-## [0.2.0] - 2026-09-10
+## [0.2.0] - 2026-09-09
 
 ### Added
 
@@ -79,7 +77,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Removed `PACK_ROOT` from `src/env.rs`
 
-## [0.1.2] - 2026-09-09
+## [0.1.2] - 2026-09-08
 
 ### Added
 
@@ -90,12 +88,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated `src/args.rs` to include new description information relating to the new branding of sculkr.
 - Updated information in README.md to make more sense to new users, added project icon image, README badges, fixed overall layout of README.
 
-## [0.1.1] - 2026-09-09
+## [0.1.1] - 2026-09-08
 
 <!-- next-url -->
 [Unreleased]: https://github.com/justin-carver/sculkr/compare/v0.2.0...HEAD
-[0.2.0]: https://github.com/justin-carver/sculkr/compare/v0.2.0...v0.2.0
-
 [0.2.0]: https://github.com/justin-carver/sculkr/compare/v0.1.4...v0.2.0
 [0.1.4]: https://github.com/justin-carver/sculkr/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/justin-carver/sculkr/compare/v0.1.2...v0.1.3

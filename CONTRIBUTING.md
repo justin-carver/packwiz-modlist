@@ -91,10 +91,40 @@ A few conventions that aren't obvious from reading a single file:
 Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/)
 (`feat:`, `fix:`, `chore:`, `docs:`, …). Keep them in the imperative mood.
 
-User-visible changes get an entry under `## [Unreleased]` in
-[CHANGELOG.md](CHANGELOG.md), following
-[Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Internal refactors and
-CI tweaks generally don't need one.
+`CHANGELOG.md` is generated from these commits by
+[git-cliff](https://git-cliff.org/), so the commit *is* the changelog entry.
+Nothing is written into the file by hand any more.
+
+Two things follow from that:
+
+- **The subject line becomes the bullet.** Write it so it reads well on a
+  release page, not just in `git log`. A `:gitmoji:` shortcode after the type is
+  fine; it gets stripped on the way in.
+- **The commit body becomes the prose under that bullet.** This is where the
+  detail that used to go into `CHANGELOG.md` belongs. It is optional, but a
+  release note is only as good as the body you wrote a month earlier.
+
+```
+feat(export): :sparkles: add JSON export for modlists
+
+Adds a --format json option that emits a machine-readable modlist.
+Useful for piping into jq or feeding a pack dashboard.
+```
+
+Types map onto [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
+sections: `feat` to Added, `fix` to Fixed, `refactor`/`perf`/`style`/`docs` to
+Changed, `deprecate` to Deprecated, `remove` to Removed, `sec` to Security.
+`chore`, `ci`, `build` and `test` are dropped, as are merge and release commits.
+The mapping lives in [`cliff.toml`](cliff.toml).
+
+To see what the next release would look like at any point:
+
+```sh
+git cliff --unreleased
+```
+
+Entries for 0.2.0 and earlier were written by hand and are left frozen; only new
+sections are generated.
 
 ## Releases
 
@@ -107,13 +137,24 @@ configured in `[package.metadata.release]`:
 cargo release <patch|minor|major>
 ```
 
-That rewrites the `Unreleased` heading in `CHANGELOG.md` to the new version and
-date, commits as `release vX.Y.Z`, tags `vX.Y.Z`, and pushes.
+That runs [`scripts/changelog.sh`](scripts/changelog.sh) as a pre-release hook,
+which asks git-cliff for the commits since the last tag, splices the new section
+into `CHANGELOG.md` below the `<!-- next-header -->` marker, and rebuilds the
+compare links at the bottom. Then it commits as `release vX.Y.Z`, tags `vX.Y.Z`,
+and pushes. Requires `cargo install git-cliff`.
+
+Dates are stamped in `America/Chicago`, set in `cliff.toml`. git-cliff's own
+`{{ date }}` is UTC, which is what put 0.2.0 on the wrong day.
+
+Add `--dry-run` to print the section that would be written without touching the
+file.
 
 Pushing the tag triggers [`tagged_release.yml`](.github/workflows/tagged_release.yml),
 which re-runs lint and tests, builds all five targets, packages archives with
 `SHA256SUMS.txt`, attaches a build provenance attestation, publishes the GitHub
-release, and then publishes to crates.io via OIDC — no long-lived registry token
+release with this version's `CHANGELOG.md` section as the release body (GitHub
+appends its own generated commit list underneath), and then publishes to
+crates.io via OIDC — no long-lived registry token
 lives in the repo. `cargo-release` itself is configured with `publish = false`
 precisely so that the workflow owns that step.
 

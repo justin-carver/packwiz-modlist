@@ -1,0 +1,69 @@
+# git-cliff configuration
+#
+# Sections 0.1.1 through 0.2.0 in CHANGELOG.md were written by hand and are
+# frozen. Everything from the next release forward is generated from commit
+# history by scripts/changelog.sh, which cargo-release invokes as a
+# pre-release-hook.
+
+[changelog]
+# The preamble and the link-reference block live in CHANGELOG.md itself, so the
+# generated section carries neither.
+header = ""
+footer = ""
+# Whitespace is load-bearing here: trimming would flatten the two-space indent
+# that puts a commit body underneath its bullet.
+trim = false
+
+body = """
+## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d", timezone="America/Chicago") }}
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group | split(pat="@") | last }}
+{% for commit in commits %}
+- {% if commit.breaking %}**Breaking:** {% endif %}{{ commit.message | upper_first }}
+{%- if commit.body %}
+
+  {{ commit.body | trim | replace(from="\n", to="\n  ") }}
+{%- endif %}
+{%- endfor %}
+{% endfor %}"""
+
+[git]
+conventional_commits = true
+# A commit that is not conventional has no section to go in, so it is dropped
+# rather than guessed at.
+filter_unconventional = true
+filter_commits = true
+tag_pattern = "v[0-9]*"
+topo_order = false
+sort_commits = "oldest"
+protect_breaking_commits = true
+
+commit_preprocessors = [
+  # Subjects are written gitmoji-style (`feat(config): :sparkles: ...`). The
+  # shortcode is decoration for the git log, not for the changelog.
+  { pattern = " *:[a-z0-9_+-]+: *", replace = " " },
+  # The same, for commits that used the literal emoji instead of the shortcode.
+  { pattern = " *[\\x{1F300}-\\x{1FAFF}\\x{2600}-\\x{27BF}]+ *", replace = " " },
+  # Issue and PR numbers become links.
+  { pattern = "\\(#([0-9]+)\\)", replace = "([#${1}](https://github.com/justin-carver/sculkr/issues/${1}))" },
+]
+
+# Groups are prefixed with a sort key that the template strips at "@", because
+# git-cliff orders groups by their raw string. The order below is the one
+# Keep a Changelog specifies.
+commit_parsers = [
+  # Release plumbing never appears in its own changelog.
+  { message = "^release v", skip = true },
+  { message = "^chore\\(release\\)", skip = true },
+  { message = "^[Mm]erge (pull request|branch|remote-tracking)", skip = true },
+
+  { message = "^feat", group = "0@Added" },
+  { message = "^(refactor|perf|style|docs)", group = "1@Changed" },
+  { message = "^deprecat", group = "2@Deprecated" },
+  { message = "^remove", group = "3@Removed" },
+  { message = "^fix", group = "4@Fixed" },
+  { message = "^sec(urity)?", group = "5@Security" },
+
+  # Housekeeping that carries no user-visible change.
+  { message = "^(chore|ci|build|test)", skip = true },
+]
