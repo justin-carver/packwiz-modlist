@@ -3,6 +3,7 @@ use std::{
     collections::{HashMap, HashSet},
     fs::File,
     io::{BufWriter, Write},
+    path::Path,
 };
 
 use colored::Colorize;
@@ -11,10 +12,13 @@ use crate::{
     Cache, Error, Mod,
     args::Cli,
     cache::CacheId,
+    config::Config,
     env::Secret,
     format::Formatter,
     get_curseforge_mods, get_modrinth_mods,
-    parser::{ParsedCurseForgeId, ParsedModrinthId, Parser},
+    parser::{
+        ParsedCurseForgeId, ParsedModrinthId, Parser, export, pack::Pack, packwiz::PackwizMod,
+    },
     request::{CurseForgeId, ModrinthId},
 };
 
@@ -32,6 +36,58 @@ fn warn_missing(source: &str, requested: &HashMap<String, CacheId>, returned: &H
     }
 }
 
+/// Where rendered output goes.
+///
+/// `--output` is *declined* rather than obeyed when the file is already there
+/// and `--force` was not passed, which is the only case worth warning about.
+/// Passing no `--output` at all is normal and must not read like a problem.
+enum Destination<'a> {
+    File(&'a Path),
+    Stdout,
+    /// `--output` was given, but the file already exists and `--force` was not.
+    StdoutBlockedBy(&'a Path),
+}
+
+// So we don't have to tee data and modify bifurcating values...
+// TODO: Need to see if we can "copy" or switch [Destination]'s between writes.
+impl<'a> Destination<'a> {
+    fn resolve(cli: &'a Cli) -> Self {
+        match cli.output.as_deref() {
+            // Treat `--output ""` the same as not passing it at all.
+            None => Self::Stdout,
+            Some(path) if path.as_os_str().is_empty() => Self::Stdout,
+            Some(path) if cli.force || !path.exists() => Self::File(path),
+            Some(path) => Self::StdoutBlockedBy(path),
+        }
+    }
+
+    /// One locked, buffered handle: a few hundred mods would otherwise be a few
+    /// hundred lock-and-flush cycles.
+    fn writer(&self) -> Result<BufWriter<Box<dyn Write>>, Error> {
+        Ok(match self {
+            Self::File(path) => BufWriter::new(Box::new(File::create(path)?)),
+            _ => BufWriter::new(Box::new(std::io::stdout().lock())),
+        })
+    }
+
+    /// Reported once, after the payload is flushed.
+    ///
+    /// This goes to the log rather than into `out`, so a warning cannot land in
+    /// the middle of a document being piped into another tool.
+    fn report(&self, written: usize) {
+        match self {
+            Self::File(path) => log::info!("wrote {written} mod(s) to {}", path.display()),
+            Self::Stdout => log::info!("listed {written} mod(s)"),
+            Self::StdoutBlockedBy(path) => {
+                log::warn!(
+                    "{} already exists; listed {written} mod(s) on stdout instead. Pass --force to overwrite it.",
+                    path.display()
+                );
+            }
+        }
+    }
+}
+
 pub struct App {
     cache: RefCell<Cache>,
     modrinth_mods: Vec<ParsedModrinthId>,
@@ -40,10 +96,24 @@ pub struct App {
     // out to hold CurseForge mods that are not already cached...
     /// Resolved once at startup.
     cf_api_key: Option<Secret>,
+    /// [None] when the directory has no `pack.toml`. Only the export needs it,
+    /// so a pack without one still lists fine.
+    pack: Option<Pack>,
+    /// The merged `.sculk` files, for the export to report and extort for rapport...
+    config: Config,
+    /// The `*.pw.toml` records. Empty for parsers that have no such thing.
+    packwiz_mods: Vec<PackwizMod>,
 }
 
 impl App {
-    pub fn new<P>(cache: Cache, parser: P, cf_api_key: Option<Secret>) -> Self
+    pub fn new<P>(
+        cache: Cache,
+        parser: P,
+        cf_api_key: Option<Secret>,
+        pack: Option<Pack>,
+        config: Config,
+        packwiz_mods: Vec<PackwizMod>,
+    ) -> Self
     where
         P: Parser,
     {
@@ -54,6 +124,9 @@ impl App {
             modrinth_mods,
             curseforge_mods,
             cf_api_key,
+            pack,
+            config,
+            packwiz_mods,
         }
     }
 
@@ -154,49 +227,46 @@ impl App {
     }
 
     pub fn run(&self, cli: Cli) -> Result<(), Error> {
+        let destination = Destination::resolve(&cli);
+
+        if cli.json {
+            if cli.format.is_some() {
+                log::warn!("--format is ignored with --json, which emits a whole document");
+            }
+
+            return self.run_export(&destination);
+        }
+
         // Parsed before anything is fetched, so a typo in the template costs a
         // message instead of a round of API calls.
         let formatter = Formatter::new(cli.format())?;
         let mods = self.sorted_mods()?;
 
-        // Treat `--output ""` the same as not passing any content to arg, i.e. skip this.
-        let output_path = cli
-            .output
-            .as_ref()
-            // If force is [None], only proceed if the file does NOT already exist (and isn't empty).
-            .filter(|path| cli.force.eq(&true) || (!path.exists() && !path.as_os_str().is_empty()));
-
-        // One locked, buffered handle: a few hundred mods would otherwise be a few
-        // hundred lock-and-flush cycles.
-        let mut out: BufWriter<Box<dyn Write>> = match output_path {
-            Some(path) => BufWriter::new(Box::new(File::create(path)?)),
-            None => BufWriter::new(Box::new(std::io::stdout().lock())),
-        };
+        let mut out = destination.writer()?;
 
         formatter.write_all(&mut out, &mods)?;
-
         out.flush()?;
 
-        match output_path {
-            Some(path) => log::info!("wrote {} mod(s) to {}", mods.len(), path.display()),
-            None => {
-                writeln!(
-                    out,
-                    "{}",
-                    "\nSpecified output path (-o) is not empty. Dumping modpack contents to stdout.\nConsider using '--force' to overwrite existing file.\n"
-                        .magenta()
-                )?;
-                if let Some(path) = cli.output.as_ref() {
-                    writeln!(
-                        out,
-                        "{} {}",
-                        String::from("Attempted to write to file: ").magenta(),
-                        path.to_string_lossy().cyan(),
-                    )?;
-                }
-                log::info!("listed {} mod(s)", mods.len())
-            }
-        }
+        destination.report(mods.len());
+
+        Ok(())
+    }
+
+    /// The whole pack as one JSON document.
+    fn run_export(&self, destination: &Destination<'_>) -> Result<(), Error> {
+        let pack = self.pack.as_ref().ok_or_else(|| {
+            Error::MissingPackToml(crate::parser::pack::PACK_FILE_NAME.to_owned())
+        })?;
+
+        let mods = self.sorted_mods()?;
+        let document = export::generate_document(pack, &self.config, &self.packwiz_mods, &mods)?;
+
+        let mut out = destination.writer()?;
+
+        writeln!(out, "{document}")?;
+        out.flush()?;
+
+        destination.report(mods.len());
 
         Ok(())
     }

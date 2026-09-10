@@ -79,6 +79,7 @@ pub struct Config {
     pub format: Option<String>,
     pub verbose: Option<u8>,
     pub quiet: Option<bool>,
+    pub json: Option<bool>,
 
     #[serde(default)]
     pub secrets: Secrets,
@@ -160,6 +161,7 @@ impl Config {
             format,
             verbose,
             quiet,
+            json,
             secrets,
             unknown,
         } = other;
@@ -169,6 +171,7 @@ impl Config {
         self.format = format.or(self.format.take());
         self.verbose = verbose.or(self.verbose);
         self.quiet = quiet.or(self.quiet);
+        self.json = json.or(self.json);
         self.secrets.overlay(secrets);
         self.unknown.extend(unknown);
     }

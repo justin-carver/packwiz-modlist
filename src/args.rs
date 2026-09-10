@@ -58,7 +58,7 @@ pub(crate) struct Cli {
         long,
         global = true,
         value_name = "PATH",
-        help = format!("The path to the packwiz root directory. [default: {:?}]", PathBuf::from(".").canonicalize().unwrap_or(PathBuf::from("."))),
+        help = format!("A path anywhere inside the packwiz pack; the root is found by searching upward for pack.toml. [default: {:?}]", PathBuf::from(".").canonicalize().unwrap_or(PathBuf::from("."))),
     )]
     pub(crate) path: Option<PathBuf>,
 
@@ -70,6 +70,10 @@ pub(crate) struct Cli {
     #[clap(short = 'F', long, global = true)]
     /// Forcibily overwrite a specified output file
     pub(crate) force: bool,
+
+    #[clap(long, global = true)]
+    /// Emit the whole pack as one JSON document instead of a formatted modlist
+    pub(crate) json: bool,
 
     /// Sets a custom output format for the modlist
     ///
@@ -107,6 +111,10 @@ impl Cli {
 
         if !self.quiet {
             self.quiet = config.quiet.unwrap_or(false);
+        }
+
+        if !self.json {
+            self.json = config.json.unwrap_or(false);
         }
     }
 
@@ -203,8 +211,11 @@ struct Runtime {
 
 impl Runtime {
     fn gather(cli: &Cli, loaded: &crate::config::Loaded) -> Self {
+        // Reported as the pack root, so it has to be resolved the same way the
+        // run resolves it: upward to wherever pack.toml is.
+        let start = cli.path.clone().unwrap_or_else(|| PathBuf::from("."));
         let pack_root = crate::util::resolve_for_display(
-            cli.path.clone().unwrap_or_else(|| PathBuf::from(".")),
+            crate::parser::pack::find_root(&start).unwrap_or(start),
         );
 
         let cache = crate::util::resolve_for_display(crate::CACHE_PATH);
@@ -217,7 +228,7 @@ impl Runtime {
             .map(|cache| cache.get_data().len());
 
         Self {
-            mods: crate::parser::packwiz::PackwizParser::load_from(&pack_root)
+            mods: crate::parser::packwiz::PackwizParser::load_from(&pack_root, None)
                 .ok()
                 .map(|pack| (pack.modrinth_mods.len(), pack.curseforge_mods.len()))
                 // A directory we cannot read and one with nothing in it have the
@@ -465,6 +476,7 @@ mod tests {
                 "--output",
                 "--format",
                 "--force",
+                "--json",
             ]
             .into_iter()
             .map(String::from)

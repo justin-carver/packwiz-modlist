@@ -48,25 +48,27 @@ fn setup_logging(verbosity: args::Verbosity) {
 
 const CACHE_PATH: &str = ".packwiz-modlist.cache.json";
 
-fn run(cli: Cli, loaded: &config::Loaded) -> Result<(), Error> {
+fn run(cli: Cli, loaded: &config::Loaded, pack_root: PathBuf) -> Result<(), Error> {
     match std::env::current_dir() {
         Ok(cwd) => log::debug!("working directory: \"{}\"", cwd.display()),
         Err(err) => log::debug!("could not determine working directory: {err}"),
     }
 
-    // Let's parse a few flags rights here, to make sure we catch them in time
-    let pack_root = match cli.path.as_ref() {
-        Some(path) => path.clone(),
-        None => PathBuf::from(".")
-            .canonicalize()
-            .unwrap_or(PathBuf::from(".")),
-    };
-
     log::debug!("pack root: \"{}\"", pack_root.display());
 
     let cache = Cache::load(CACHE_PATH)?;
 
-    let pw_parser = PackwizParser::load_from(pack_root)?;
+    // Absent is not fatal: only --json needs the metadata, and a bare directory
+    // of *.pw.toml files still lists fine.
+    let pack = parser::pack::Pack::read(pack_root.join(parser::pack::PACK_FILE_NAME)).ok();
+
+    let index_file = pack
+        .as_ref()
+        .and_then(|pack| pack.index.as_ref())
+        .map(|index| index.file.as_str());
+
+    let pw_parser = PackwizParser::load_from(&pack_root, index_file)?;
+    let packwiz_mods = pw_parser.mods.clone();
 
     // Resolved here rather than at the request, so the environment-over-file
     // precedence is decided once and the same key is reported by `config`.
@@ -75,7 +77,14 @@ fn run(cli: Cli, loaded: &config::Loaded) -> Result<(), Error> {
         key
     });
 
-    let app = App::new(cache, pw_parser, cf_api_key);
+    let app = App::new(
+        cache,
+        pw_parser,
+        cf_api_key,
+        pack,
+        loaded.config.clone(),
+        packwiz_mods,
+    );
 
     if let Err(err) = app.run(cli) {
         log::error!("{err}");
@@ -94,7 +103,13 @@ fn main() {
 
     // The config file can set the log level, so it has to be read before there
     // is any logging to read it with. Whatever it had to say is replayed below.
-    let loaded = config::Loaded::discover(cli.path.clone().unwrap_or_else(|| PathBuf::from(".")));
+    // Everything resolves against the pack root, which is wherever pack.toml
+    // is, not wherever --path happens to point. A pack's own `.sculk` sits
+    // beside pack.toml, so the root has to be settled before the config is read.
+    let start = cli.path.clone().unwrap_or_else(|| PathBuf::from("."));
+    let pack_root = parser::pack::find_root(&start).unwrap_or(start);
+
+    let loaded = config::Loaded::discover(&pack_root);
     cli.apply(&loaded.config);
 
     // Flags
@@ -117,7 +132,7 @@ fn main() {
     let result: anyhow::Result<()> = match cli.command {
         Some(Command::Config) => args::config(&mut std::io::stdout().lock(), &cli, &loaded),
         Some(Command::About) => args::about(&mut std::io::stdout().lock()),
-        None => run(cli, &loaded).map_err(anyhow::Error::from),
+        None => run(cli, &loaded, pack_root).map_err(anyhow::Error::from),
     };
 
     if let Err(err) = result {

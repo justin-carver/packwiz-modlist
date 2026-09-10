@@ -24,6 +24,8 @@ pub enum Error {
     Response(i32, String, String),
     #[error("{0}")]
     MinReq(minreq::Error),
+    #[error("no {0} in the pack root, which --json needs for pack metadata")]
+    MissingPackToml(String),
     #[error("{0}")]
     TextParser(#[from] crate::parser::text::ParseError),
     #[error("{0}")]

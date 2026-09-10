@@ -1,4 +1,5 @@
 pub mod export;
+pub mod index;
 pub mod pack;
 pub mod packwiz;
 pub mod text;

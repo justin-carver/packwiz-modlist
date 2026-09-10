@@ -73,11 +73,12 @@ is plain TOML. Every key is optional and matches a long flag by name:
 
 ```toml
 # .sculk
-path   = "."                            # packwiz root, same as --path
+path   = "."                            # anywhere in the pack, same as --path
 output = "modlist.md"                   # same as --output; omit for stdout
 format = '- [{NAME}]({URL}) - {DESC}\n'  # same as --format
 verbose = 1                             # 0-3, same as -v/-vv/-vvv
 quiet   = false                         # same as --quiet
+json    = false                         # same as --json; overrides format
 
 [secrets]                               # read the Secrets section below first
 cf-api-key = '$2a$10$...'               # same as CF_API_KEY

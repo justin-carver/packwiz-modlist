@@ -1,130 +1,242 @@
-//! One exportable document describing a pack -- its `pack.toml` metadata, the
-//! settings the run resolved, and every mod that came back -- serialized as
-//! JSON.
+//! One exportable document describing a pack -- its `pack.toml` metadata, every
+//! `*.pw.toml` record, the project data fetched from Modrinth and CurseForge,
+//! and the settings the run resolved -- serialized as JSON.
 //!
-//! These structs are a deliberate *view* rather than `Serialize` on the real
-//! types. [`Config`] owns a [`Secret`](crate::env::Secret), which has no
-//! `Serialize` on purpose; naming each exported field by hand is what keeps a
-//! CurseForge key out of a file that tends to get committed. Widen this by
-//! adding a field here, never by deriving `Serialize` on `Config`.
+//! Keys are snake_case throughout and every struct here is written in the order
+//! it should appear, because `serde_json` emits struct fields in declaration
+//! order. Reordering a field reorders the output.
 //!
-//! There is deliberately no `generatedAt` field. A timestamp would make the
+//! [`Settings`] is a deliberate *view* rather than `Serialize` on [`Config`].
+//! `Config` owns a [`Secret`](crate::env::Secret), which has no `Serialize` on
+//! purpose; naming each exported field by hand is what keeps a CurseForge key
+//! out of a file that tends to get committed. Widen it by adding a field here,
+//! never by deriving `Serialize` on `Config`.
+//!
+//! There is deliberately no `generated_at` field. A timestamp would make the
 //! output differ on every run, which breaks `insta` snapshots and makes the
 //! file churn in git for no information.
 
-use std::path::Path;
+use std::{collections::HashSet, path::Path};
 
 use serde::Serialize;
 
-use crate::{Error, config::Config, parser::pack::Pack, request::Mod};
+use crate::{
+    Error,
+    config::Config,
+    parser::{pack::Pack, packwiz::PackwizMod},
+    request::{Author, License, Mod},
+};
 
 /// Bump when a field is removed or changes meaning, so consumers can branch.
 pub const SCHEMA_VERSION: u32 = 1;
 
 #[derive(Serialize, Debug)]
-#[serde(rename_all = "camelCase")]
 pub struct Document<'a> {
     pub schema_version: u32,
-    pub pack: PackInfo<'a>,
+    pub pack: &'a Pack,
+    /// The pack's own records, straight from the `*.pw.toml` files.
+    pub mods: &'a [PackwizMod],
+    /// What the APIs returned for those mods, tagged by where it came from.
+    pub projects: Vec<ProjectEntry<'a>>,
     pub settings: Settings<'a>,
-    /// Borrowed, so a few hundred mods are not cloned to be printed once.
-    pub mods: &'a [Mod],
 }
 
+/// Externally tagged, so a consumer can branch on the source without a
+/// discriminant field: `{"Modrinth": {...}}`.
 #[derive(Serialize, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct PackInfo<'a> {
-    pub name: &'a str,
-    pub author: Option<&'a str>,
-    pub version: Option<&'a str>,
-    pub minecraft: Option<&'a str>,
-    pub loader: Option<Loader<'a>>,
+pub enum ProjectEntry<'a> {
+    Modrinth(ProjectView<'a>),
+    CurseForge(ProjectView<'a>),
 }
 
+/// Everything the cache holds for one project, in a fixed key order.
+///
+/// Borrowed from [`Mod`] rather than reusing it directly, because `Mod` is
+/// camelCase for the cache file and this document is snake_case.
 #[derive(Serialize, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct Loader<'a> {
-    pub name: &'a str,
-    pub version: &'a str,
+pub struct ProjectView<'a> {
+    pub id: &'a str,
+    pub slug: &'a str,
+    pub title: &'a str,
+    pub description: &'a str,
+    pub mod_url: &'a str,
+    pub license: Option<&'a License>,
+    pub authors: &'a [Author],
+    pub icon_url: Option<&'a str>,
+    pub source_url: Option<&'a str>,
+    pub issues_url: Option<&'a str>,
+    pub wiki_url: Option<&'a str>,
+}
+
+impl<'a> From<&'a Mod> for ProjectView<'a> {
+    fn from(m: &'a Mod) -> Self {
+        Self {
+            id: &m.id,
+            slug: &m.slug,
+            title: &m.title,
+            description: &m.description,
+            mod_url: &m.mod_url,
+            license: m.license.as_ref(),
+            authors: &m.authors,
+            icon_url: m.icon_url.as_deref(),
+            source_url: m.source_url.as_deref(),
+            issues_url: m.issues_url.as_deref(),
+            wiki_url: m.wiki_url.as_deref(),
+        }
+    }
 }
 
 /// The resolved global flags. Nothing from `[secrets]` belongs here.
 #[derive(Serialize, Debug)]
-#[serde(rename_all = "camelCase")]
 pub struct Settings<'a> {
     pub format: Option<&'a str>,
     pub output: Option<&'a Path>,
     pub path: Option<&'a Path>,
 }
 
-// Specifically left "Document" naming ambiguous. Will first be targeting JSON output
-// to interface with local scripts, but open to TOML/YAML later upon request (or PR!).
 impl<'a> Document<'a> {
-    pub fn new(pack: &'a Pack, config: &'a Config, mods: &'a [Mod]) -> Self {
+    pub fn new(
+        pack: &'a Pack,
+        config: &'a Config,
+        mods: &'a [PackwizMod],
+        projects: &'a [Mod],
+    ) -> Self {
+        // The pack's own records say which service each id belongs to, so the
+        // source is derived here rather than tracked on Mod, which would change
+        // the on-disk cache shape.
+        let modrinth_ids: HashSet<&str> = mods
+            .iter()
+            .filter_map(|m| m.update.modrinth.as_ref())
+            .map(|update| update.mod_id.as_str())
+            .collect();
+
+        let projects = projects
+            .iter()
+            .map(|m| {
+                if modrinth_ids.contains(m.id.as_str()) {
+                    ProjectEntry::Modrinth(m.into())
+                } else {
+                    ProjectEntry::CurseForge(m.into())
+                }
+            })
+            .collect();
+
         Self {
             schema_version: SCHEMA_VERSION,
-            pack: PackInfo {
-                name: &pack.name,
-                author: pack.author.as_deref(),
-                version: pack.version.as_deref(),
-                minecraft: pack.versions.minecraft.as_deref(),
-                loader: pack
-                    .versions
-                    .loader()
-                    .map(|(name, version)| Loader { name, version }),
-            },
+            pack,
+            mods,
+            projects,
             settings: Settings {
                 // config.secrets is intentionally absent. See the module docs.
                 format: config.format.as_deref(),
                 output: config.output.as_deref(),
                 path: config.path.as_deref(),
             },
-            mods,
         }
     }
-
-    // Will extend specific document functions down the line
 
     pub fn to_json_pretty(&self) -> Result<String, Error> {
         Ok(serde_json::to_string_pretty(self)?)
     }
 }
 
+/// Renders the whole pack as one JSON document, for piping into another tool.
+pub fn generate_document(
+    pack: &Pack,
+    config: &Config,
+    mods: &[PackwizMod],
+    projects: &[Mod],
+) -> Result<String, Error> {
+    Document::new(pack, config, mods, projects).to_json_pretty()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::request::{Author, License};
+    use crate::parser::packwiz::{
+        PackwizDownload, PackwizMod, PackwizModUpdate, PackwizModUpdateCurseforge,
+        PackwizModUpdateModrinth,
+    };
 
     fn sample_pack() -> Pack {
         toml::from_str(
             r#"
-name = "Example Pack"
+name = "Create Prime"
 author = "minecraft_steve"
-version = "1.2.0"
+version = "1.0.0"
+pack-format = "packwiz:1.1.0"
+
+[index]
+file = "index.toml"
+hash = "deadbeef"
 
 [versions]
-minecraft = "1.20.1"
-fabric = "0.14.21"
+minecraft = "1.21.1"
+neoforge = "21.1.249"
 "#,
         )
         .expect("sample should parse")
     }
 
-    fn sample_mod() -> Mod {
-        Mod {
-            id: "AANobbMI".into(),
-            slug: "sodium".into(),
-            title: "Sodium".into(),
-            description: "A modern rendering engine".into(),
-            mod_url: "https://modrinth.com/mod/sodium".into(),
-            license: Some(License {
-                id: "LGPL-3.0-only".into(),
-                name: "LGPL-3.0-only".into(),
+    /// Shaped after a real Modrinth `*.pw.toml`.
+    fn modrinth_pw_mod() -> PackwizMod {
+        PackwizMod {
+            name: "Sodium".into(),
+            filename: "sodium-neoforge-0.8.13.jar".into(),
+            side: Some("client".into()),
+            download: PackwizDownload {
+                url: Some("https://cdn.modrinth.com/data/AANobbMI/x.jar".into()),
+                hash: "4f5376".into(),
+                hash_format: "sha512".into(),
+                mode: None,
+            },
+            update: PackwizModUpdate {
+                modrinth: Some(PackwizModUpdateModrinth {
+                    mod_id: "AANobbMI".into(),
+                    version: "uMOpc5uV".into(),
+                }),
+                curseforge: None,
+            },
+            category: Some("mods".into()),
+            path: "mods/sodium.pw.toml".into(),
+        }
+    }
+
+    /// CurseForge entries carry a mode and no url.
+    fn curseforge_pw_mod() -> PackwizMod {
+        PackwizMod {
+            name: "FTB Teams".into(),
+            filename: "ftb-teams-neoforge.jar".into(),
+            side: Some("both".into()),
+            download: PackwizDownload {
                 url: None,
-            }),
+                hash: "62b65f".into(),
+                hash_format: "sha1".into(),
+                mode: Some("metadata:curseforge".into()),
+            },
+            update: PackwizModUpdate {
+                modrinth: None,
+                curseforge: Some(PackwizModUpdateCurseforge {
+                    file_id: 8724782,
+                    project_id: 404468,
+                }),
+            },
+            category: Some("mods".into()),
+            path: "mods/ftb-teams.pw.toml".into(),
+        }
+    }
+
+    fn project(id: &str, slug: &str, title: &str) -> Mod {
+        Mod {
+            id: id.into(),
+            slug: slug.into(),
+            title: title.into(),
+            description: "A mod.".into(),
+            mod_url: format!("https://example.invalid/{slug}"),
+            license: None,
             authors: vec![Author {
-                name: "jellysquid3".into(),
-                url: "https://modrinth.com/user/jellysquid3".into(),
+                name: "someone".into(),
+                url: "https://example.invalid/u".into(),
             }],
             icon_url: None,
             source_url: None,
@@ -133,52 +245,75 @@ fabric = "0.14.21"
         }
     }
 
+    fn render(mods: &[PackwizMod], projects: &[Mod]) -> serde_json::Value {
+        let json = generate_document(&sample_pack(), &Config::default(), mods, projects)
+            .expect("should serialize");
+
+        serde_json::from_str(&json).expect("the export should be valid json")
+    }
+
     /// Parsed back rather than matched as a string, so pretty-printing
-    /// whitespace and field order cannot break the test.
+    /// whitespace cannot break the test.
     #[test]
     fn renders_the_document_shape() {
-        let pack = sample_pack();
-        let config = Config::default();
-        let mods = vec![sample_mod()];
+        let doc = render(&[modrinth_pw_mod()], &[project(
+            "AANobbMI", "sodium", "Sodium",
+        )]);
 
-        let json = Document::new(&pack, &config, &mods)
-            .to_json_pretty()
-            .expect("should serialize");
+        assert_eq!(doc["schema_version"], 1);
 
-        let doc: serde_json::Value =
-            serde_json::from_str(&json).expect("the export should be valid json");
+        assert_eq!(doc["pack"]["name"], "Create Prime");
+        assert_eq!(doc["pack"]["pack_format"], "packwiz:1.1.0");
+        assert_eq!(doc["pack"]["versions"]["minecraft"], "1.21.1");
+        assert_eq!(doc["pack"]["versions"]["neoforge"], "21.1.249");
 
-        assert_eq!(doc["schemaVersion"], 1);
-        assert_eq!(doc["pack"]["name"], "Example Pack");
-        assert_eq!(doc["pack"]["author"], "minecraft_steve");
-        assert_eq!(doc["pack"]["minecraft"], "1.20.1");
-        assert_eq!(doc["pack"]["loader"]["name"], "fabric");
-        assert_eq!(doc["pack"]["loader"]["version"], "0.14.21");
+        // A .pw.toml record, kebab-case on disk and snake_case here.
+        assert_eq!(doc["mods"][0]["filename"], "sodium-neoforge-0.8.13.jar");
+        assert_eq!(doc["mods"][0]["side"], "client");
+        assert_eq!(doc["mods"][0]["download"]["hash_format"], "sha512");
+        assert_eq!(doc["mods"][0]["update"]["modrinth"]["mod_id"], "AANobbMI");
 
-        // The payload, carrying Mod's own camelCase through untouched.
-        assert_eq!(doc["mods"].as_array().map(Vec::len), Some(1));
-        assert_eq!(doc["mods"][0]["slug"], "sodium");
-        assert_eq!(doc["mods"][0]["modUrl"], "https://modrinth.com/mod/sodium");
-        assert_eq!(doc["mods"][0]["authors"][0]["name"], "jellysquid3");
+        assert_eq!(doc["projects"][0]["Modrinth"]["slug"], "sodium");
+        assert_eq!(
+            doc["projects"][0]["Modrinth"]["mod_url"],
+            "https://example.invalid/sodium"
+        );
     }
 
-    /// A pack that names no loader still exports, with a null rather than a
-    /// missing key.
+    /// Every loader key is present on every export, so a consumer can read
+    /// `versions.fabric` without checking whether it exists first.
     #[test]
-    fn a_pack_without_a_loader_still_exports() {
-        let pack: Pack = toml::from_str(r#"name = "Bare""#).expect("should parse");
+    fn unused_loaders_are_null_rather_than_missing() {
+        let doc = render(&[], &[]);
+        let versions = doc["pack"]["versions"]
+            .as_object()
+            .expect("versions should be an object");
 
-        let json = Document::new(&pack, &Config::default(), &[])
-            .to_json_pretty()
-            .expect("should serialize");
+        assert!(versions["fabric"].is_null());
+        assert!(versions["forge"].is_null());
+        assert!(versions["quilt"].is_null());
+        assert_eq!(versions["neoforge"], "21.1.249");
 
-        let doc: serde_json::Value = serde_json::from_str(&json).expect("valid json");
-
-        assert!(doc["pack"]["loader"].is_null());
-        assert!(doc["pack"]["minecraft"].is_null());
+        let keys: Vec<&str> = versions.keys().map(String::as_str).collect();
+        assert_eq!(keys, ["fabric", "forge", "minecraft", "neoforge", "quilt"]);
     }
 
-    /// The whole reason these structs exist rather than `Serialize` on `Config`.
+    /// The pack's own records are what say which service an id came from.
+    #[test]
+    fn projects_are_tagged_by_source() {
+        let doc = render(&[modrinth_pw_mod(), curseforge_pw_mod()], &[
+            project("AANobbMI", "sodium", "Sodium"),
+            project("404468", "ftb-teams", "FTB Teams"),
+        ]);
+
+        assert_eq!(doc["projects"][0]["Modrinth"]["slug"], "sodium");
+        assert!(doc["projects"][0]["CurseForge"].is_null());
+
+        assert_eq!(doc["projects"][1]["CurseForge"]["slug"], "ftb-teams");
+        assert!(doc["projects"][1]["Modrinth"].is_null());
+    }
+
+    /// The whole reason [`Settings`] exists rather than `Serialize` on `Config`.
     #[test]
     fn a_configured_api_key_never_reaches_the_export() {
         let config: Config = toml::from_str(
@@ -199,9 +334,7 @@ cf-api-key = "super-secret-value"
             .as_ref()
             .expect("the sample key should have been loaded");
 
-        let json = Document::new(&sample_pack(), &config, &[])
-            .to_json_pretty()
-            .expect("should serialize");
+        let json = generate_document(&sample_pack(), &config, &[], &[]).expect("should serialize");
 
         assert!(
             !json.contains(key.expose()),

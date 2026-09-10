@@ -19,13 +19,16 @@ Options:
           Suppress all non-error output
 
   -p, --path <PATH>
-          The path to the packwiz root directory. [default: "[CWD]"]
+          A path anywhere inside the packwiz pack; the root is found by searching upward for pack.toml. [default: "[CWD]"]
 
   -o, --output <PATH>
           Sets a custom output path for the modlist [default: stdout]
 
   -F, --force
           Forcibily overwrite a specified output file
+
+      --json
+          Emit the whole pack as one JSON document instead of a formatted modlist
 
   -f, --format <FORMAT>
           Sets a custom output format for the modlist.
