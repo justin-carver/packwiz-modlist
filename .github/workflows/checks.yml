@@ -1,0 +1,76 @@
+name: Checks
+
+# Called by ci.yml and tagged_release.yml so both run the same checks against
+# the same definition, rather than two copies that drift apart.
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+# A caller's env does not reach a reusable workflow, so these are repeated here.
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  RUST_BACKTRACE: 1
+
+jobs:
+  lint:
+    name: Lint (fmt, clippy, docs)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Install nightly rustfmt
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt
+
+      - name: Cache cargo artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: lint
+
+      # Installing nightly leaves it as the default, so every step names its
+      # toolchain rather than trusting whichever was installed last.
+      - name: Check formatting
+        run: cargo +nightly fmt --all --check
+
+      - name: Clippy
+        run: cargo +stable clippy --locked --all-targets --all-features -- -D warnings
+
+      - name: Check documentation
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo +stable doc --locked --no-deps --all-features
+
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: test-${{ matrix.os }}
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@nextest
+
+      - name: Run tests
+        run: cargo nextest run --locked --all-features
