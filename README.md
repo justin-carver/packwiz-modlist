@@ -21,17 +21,24 @@ A companion CLI application for `packwiz` that parses its output data to deliver
 
 </div>
 
-## Current Features
+## Features
 
-- Creates a **Minecraft** modlist from [packwiz](https://packwiz.infra.link/).
-
-    The format of the modlist can be customized to your choosing, based on a collection of available placeholder/template strings, and it's output stored in a file or piped into other programs.
-
-    See the [Formatting](#Formatting) section for more information.
+- **Modlist generation** from any [packwiz](https://packwiz.infra.link/) pack, Modrinth and CurseForge alike.
+- **Custom modlist templates** via `--format`, across 16 project fields. See [Formatting](#formatting).
+- **JSON export** of the entire pack with `--json`, for feeding other tools.
+- **Folder-agnostic**, so all `resourcepacks/`, `shaderpacks/` and `datapacks/` are monitored too.
+- **Cached per pinned version.** A fully cached run makes zero API calls.
+- **Shareable config** in committed `.sculk` files, global and per-pack, centralized modpack configs.
+- **Keeps `CF_API_KEY` out of your pack**, redacted in output and never processed in output files.
+- **Pipes cleanly**, since every log line goes to stderr instead of into your modlist.
 
 ## Installation
 
 Requires Rust **1.88** or newer (edition 2024).
+
+### Dependencies
+
+As of right now, this CLI tool **does not** make modifications to your modlist managed by `packwiz`. [We are currently considering this.](https://github.com/justin-carver/sculkr/issues/10) `sculkr` simply elevates ways to interact with already generated `packwiz` modlists. Due to this, [packwiz](https://github.com/packwiz/packwiz) is considered it's only external dependency (aside from the Cargo deps, of course).
 
 ### From crates.io
 
@@ -253,17 +260,6 @@ A placeholder with no value for a given mod renders as an empty string.
 > If you are getting rate-limited by an API, it is advisible to update the cache only once all mod changes are finished.
 
 `sculkr --help` prints the same table, generated from the same source.
-
-## Todo
-
-Just a small list of things I'd like to implement that would probably elevate this app just a little bit more:
-
-1. Cache, list, query dependencies for each mod.
-2. Ability to have inline notifications regarding when a new update for a specific Minecraft version is available.
-3. Display info regarding: (+ # of New Mods) or (- # Deleted mods), and their names, since last cache state.
-4. Extend the cache db to include information about when mod was added (may help troubleshoot terrible mod issues!)
-5. Bulk Edit / Bulk Modify mods based on regular expressions
-6. (Idk if this can be done???) Ability to hook into log files and determine what mods/deps caused previous crashes.
 
 ## Issues & Contributions
 
