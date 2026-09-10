@@ -17,6 +17,7 @@ use crate::{
 mod app;
 mod args;
 mod cache;
+mod config;
 mod consts;
 mod env;
 mod error;
@@ -47,7 +48,7 @@ fn setup_logging(verbosity: args::Verbosity) {
 
 const CACHE_PATH: &str = ".packwiz-modlist.cache.json";
 
-fn run(cli: Cli) -> Result<(), Error> {
+fn run(cli: Cli, loaded: &config::Loaded) -> Result<(), Error> {
     match std::env::current_dir() {
         Ok(cwd) => log::debug!("working directory: \"{}\"", cwd.display()),
         Err(err) => log::debug!("could not determine working directory: {err}"),
@@ -66,7 +67,15 @@ fn run(cli: Cli) -> Result<(), Error> {
     let cache = Cache::load(CACHE_PATH)?;
 
     let pw_parser = PackwizParser::load_from(pack_root)?;
-    let app = App::new(cache, pw_parser);
+
+    // Resolved here rather than at the request, so the environment-over-file
+    // precedence is decided once and the same key is reported by `config`.
+    let cf_api_key = loaded.curseforge_api_key().map(|(key, source)| {
+        log::debug!("using the {} from {source}", crate::env::CF_API_KEY);
+        key
+    });
+
+    let app = App::new(cache, pw_parser, cf_api_key);
 
     if let Err(err) = app.run(cli) {
         log::error!("{err}");
@@ -81,21 +90,34 @@ fn run(cli: Cli) -> Result<(), Error> {
 
 fn main() {
     // Setting up arg parsing outside of app.rs for now, as these are core commands.
-    let cli = args::Cli::parse();
+    let mut cli = args::Cli::parse();
+
+    // The config file can set the log level, so it has to be read before there
+    // is any logging to read it with. Whatever it had to say is replayed below.
+    let loaded = config::Loaded::discover(cli.path.clone().unwrap_or_else(|| PathBuf::from(".")));
+    cli.apply(&loaded.config);
 
     // Flags
     let verbosity = args::Verbosity::resolve(cli.verbose, cli.quiet);
     // Logging needs to be run after verbosity is resolved, but before any other code that may log.
     setup_logging(verbosity);
 
+    for source in &loaded.sources {
+        log::debug!("loaded config from \"{}\"", source.display());
+    }
+
+    for warning in &loaded.warnings {
+        log::warn!("{warning}");
+    }
+
     crate::env::load_dotenv();
 
     // Commands / Subcommands
     // Result of the most recently run subcommand
     let result: anyhow::Result<()> = match cli.command {
-        Some(Command::Config) => args::config(&mut std::io::stdout().lock(), &cli),
+        Some(Command::Config) => args::config(&mut std::io::stdout().lock(), &cli, &loaded),
         Some(Command::About) => args::about(&mut std::io::stdout().lock()),
-        None => run(cli).map_err(anyhow::Error::from),
+        None => run(cli, &loaded).map_err(anyhow::Error::from),
     };
 
     if let Err(err) = result {

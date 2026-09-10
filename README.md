@@ -1,18 +1,25 @@
 # sculkr
 
-<center>
+<div align="center">
+
 <img src=".github/assets/sculk-chute.png" width="25%"/>
 
-[![CI](https://img.shields.io/github/actions/workflow/status/justin-carver/sculkr/ci.yml?branch=main&style=flat-square&logo=githubactions&logoColor=white&label=ci)](https://github.com/justin-carver/sculkr/actions/workflows/ci.yml)
 [![crates.io](https://img.shields.io/crates/v/sculkr?style=flat-square&logo=rust&logoColor=white&label=crates.io)](https://crates.io/crates/sculkr)
+![Crates.io Total Downloads](https://img.shields.io/crates/d/sculkr?style=flat-square&logo=rust&color=blue&link=https%3A%2F%2Fcrates.io%2Fcrates%2Fsculkr)
 [![release](https://img.shields.io/github/v/release/justin-carver/sculkr?style=flat-square&logo=github&label=release&sort=semver)](https://github.com/justin-carver/sculkr/releases/latest)
+
+[![CI](https://img.shields.io/github/actions/workflow/status/justin-carver/sculkr/ci.yml?branch=main&style=flat-square&logo=githubactions&logoColor=white&label=CI)](https://github.com/justin-carver/sculkr/actions/workflows/ci.yml)
+[![GitHub_Actions](https://img.shields.io/github/actions/workflow/status/justin-carver/sculkr/ci.yml?branch=main&style=flat-square&logo=github&logoColor=white&label=GitHub%20Actions)](https://github.com/justin-carver/sculkr/actions/workflows/ci.yml)
+
+![install_size](https://img.shields.io/crates/size/sculkr?style=flat-square&logo=rust&label=install%20size&link=https%3A%2F%2Fcrates.io%2Fcrates%2Fsculkr)
 [![msrv](https://img.shields.io/badge/MSRV-1.88%2B-b7410e?style=flat-square&logo=rust&logoColor=white)](https://github.com/justin-carver/sculkr/blob/main/Cargo.toml)
 [![platforms](https://img.shields.io/badge/platforms-linux%20%7C%20macOS%20%7C%20Windows-blue?style=flat-square)](https://github.com/justin-carver/sculkr/releases/latest)
-[![license](https://img.shields.io/crates/l/sculkr?style=flat-square&color=%23555)](https://github.com/justin-carver/sculkr/blob/main/LICENSE)
+[![license](https://img.shields.io/crates/l/sculkr?style=flat-square&color=DFBE6F)](https://github.com/justin-carver/sculkr/blob/main/LICENSE)
+[![PRs](https://img.shields.io/badge/Welcome!-brightgreen?style=flat-square&logoColor=white&label=PRs)](https://github.com/justin-carver/sculkr/actions/workflows/ci.yml)
 
 A companion CLI application for `packwiz` that parses its output data to deliver advanced utility commands and extended features for Minecraft modpack development.
 
-</center>
+</div>
 
 ## Current Features
 
@@ -59,15 +66,81 @@ cargo install --path .
 
 ## Configuration
 
-`sculkr` reads its settings from the environment at run time, and loads a `.env`
-from the working directory if one is present. Copy [`.env.example`](.env.example)
-to `.env` to get started.
+### `.sculk` Config Files
 
-| Variable     | Required            | Value                                                                                                                                                           |
-| ------------ | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CF_API_KEY` | For CurseForge mods | A [CurseForge API key](https://console.curseforge.com/). Only requested when the pack actually contains CurseForge mods — a Modrinth-only pack never needs one. |
+Flags you would otherwise retype on every run can live in a `.sculk` file, which
+is plain TOML. Every key is optional and matches a long flag by name:
 
-Quote `CF_API_KEY` with **single** quotes. CurseForge keys are bcrypt-shaped
+```toml
+# .sculk
+path   = "."                            # packwiz root, same as --path
+output = "modlist.md"                   # same as --output; omit for stdout
+format = '- [{NAME}]({URL}) - {DESC}\n'  # same as --format
+verbose = 1                             # 0-3, same as -v/-vv/-vvv
+quiet   = false                         # same as --quiet
+
+[secrets]                               # read the Secrets section below first
+cf-api-key = '$2a$10$...'               # same as CF_API_KEY
+```
+
+Two files are read, and then merged, in descending order. Anything passed on the command line takes priority:
+
+| Location                                         | Applies to                       |
+| ------------------------------------------------ | -------------------------------- |
+| `~/.config/sculkr/.sculk` (or the OS equivalent) | every pack on the machine        |
+| `<pack root>/.sculk`                             | that pack, overriding the global |
+
+`sculkr config` prints which files were found. Keep in mind:
+
+- **Relative paths resolve against the file they are written in**, not the
+  working directory, so a `path` in the global config means the same thing from
+  anywhere.
+- **Use single quotes for `format`.** TOML resolves `\n` inside double quotes;
+  a literal string hands the escape through to the
+  formatter, which is where the [formatting notes](#formatting-notes) apply.
+- **An unknown key is a warning, not an error.** If the key does not exist, or does not
+  parse due to a typo, then it will not be read.
+- **.sculk files <u>should</u> be pushed to Git and bundled with modpacks, .env should not.** This allows modpack maintainers to create configurations that are shared between users. That is also exactly why the `[secrets]` table below needs care.
+
+### Secrets in `.sculk`
+
+A `.sculk` may carry a CurseForge key, or potentially future secrets, so one file can serve every pack on the machine instead of a `.env` per pack:
+
+```toml
+# ~/.config/sculkr/.sculk
+[secrets]
+cf-api-key = '$2a$10$...'
+```
+
+> [!WARNING]
+> Put it in the **global** file, not in a pack's. A pack's `.sculk` is meant to
+> be committed and shipped with the modpack, so a key written into one is a key
+> handed to everybody who downloads it. `sculkr` warns on every run when it
+> finds one there — it still uses the key, because a private pack repo is a
+> real thing, but the warning does not go away.
+
+Three places are checked, and the first one with a value wins:
+
+| Order | Source                                             |
+| ----- | -------------------------------------------------- |
+| 1     | ↓ `CF_API_KEY` in the environment, `.env` included |
+| 2     | ↓ `[secrets]` in `<pack root>/.sculk`              |
+| 3     | \_ `[secrets]` in the global `.sculk`              |
+
+The environment takes precedence over both files. `sculkr config` prints which of the three the key in
+effect came from, alongside its fingerprint.
+
+Quote the key with **SINGLE** quotes, the same as `format`, so nothing inside it is read as a TOML escape.
+
+### Environment Vars (.env)
+
+`sculkr` reads its secrets from the environment at run time, and loads a `.env` from the working directory, if one is present. Copy [`.env.example`](.env.example), modify it's contents, and rename to `.env` to get started.
+
+| Variable     | Required            | Value                                                                                                                                                                                                                                   |
+| ------------ | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CF_API_KEY` | For CurseForge mods | A [CurseForge API key](https://console.curseforge.com/). Only requested when the pack actually contains CurseForge mods — a Modrinth-only pack never needs one. Overrides [`secrets.cf-api-key`](#secrets-in-sculk) in either `.sculk`. |
+
+Same as the above `.sculk` `[secrets]` formatting, quote `CF_API_KEY` with **single** quotes. CurseForge keys are bcrypt-shaped
 (`$2a$10$...`) and dotenv expands `$VAR` inside double quotes, which silently
 truncates the key and earns you a `403` with an empty body.
 
@@ -156,24 +229,23 @@ A placeholder with no value for a given mod renders as an empty string.
 
 ### Formatting Notes
 
-Line breaks _inside_ a value are collapsed to single spaces before
-substitution. Both Modrinth and CurseForge allow them in a description, and one arriving mid-entry
-would otherwise split a list item or table row across lines — so the only line
-breaks in the output are the ones custom format's request.
+- Line breaks _inside_ a value are collapsed to single spaces before
+  substitution. Both Modrinth and CurseForge allow them in a description, and one arriving mid-entry
+  would otherwise split a list item or table row across lines — so the only line
+  breaks in the output are the ones custom format's request.
 
-CurseForge exposes no license anywhere in its public API, even though it is shown on the project page. `{LICENSE*}` is
-therefore empty for CurseForge mods.
+- CurseForge exposes no license anywhere in its public API, even though it is shown on the project page. `{LICENSE*}` is
+  therefore empty for CurseForge mods.
 
-Modrinth author names cost extra lookups, because a project is credited to a
-_Team_ rather than to a list of users:
-
-- Team members come from a bulk `/v2/teams` call, sorted owner-first so the
-  credit line is stable between runs.
-- A project owned by an _organization_ has an empty team, and the site credits
-  the organization — so `{AUTHORS}` gets the organization
-  (`Forgified Fabric API :: Sinytra`). This is the one place `sculkr` touches
-  Modrinth's `/v3` API, which is documented as unstable, so a failure there
-  logs a warning and leaves those authors empty rather than failing the run... perhaps it'll be stable later.
+- Modrinth author names cost extra lookups, because a project is credited to a
+  _Team_ rather than to a list of users:
+    - Team members come from a bulk `/v2/teams` call, sorted owner-first so the
+      credit line is stable between runs.
+    - A project owned by an _organization_ has an empty team, and the site credits
+      the organization — so `{AUTHORS}` gets the organization
+      (`Forgified Fabric API :: Sinytra`). This is the one place `sculkr` touches
+      Modrinth's `/v3` API, which is documented as unstable, so a failure there
+      logs a warning and leaves those authors empty rather than failing the run... perhaps it'll be stable later.
 
 **Neither API lookup runs when every mod is already cached.**
 

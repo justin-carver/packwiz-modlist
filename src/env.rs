@@ -8,6 +8,8 @@
 
 use std::{fmt, path::PathBuf};
 
+use serde::{Deserialize, Deserializer};
+
 use crate::error::Error;
 
 pub const CF_API_KEY: &str = "CF_API_KEY";
@@ -23,6 +25,11 @@ impl Secret {
     /// Hands out the real value. Call this at the point of use, never earlier.
     pub fn expose(&self) -> &str {
         &self.0
+    }
+
+    /// Whitespace and nothing else is the same as no value at all
+    pub fn is_blank(&self) -> bool {
+        self.0.trim().is_empty()
     }
 
     /// The first and last few characters, e.g. `$2a$...e345`.
@@ -54,6 +61,17 @@ impl fmt::Display for Secret {
     }
 }
 
+/// Written out by hand rather than derived, so nothing can quietly pick up a
+/// `Serialize` alongside it and write the value back out again.
+impl<'de> Deserialize<'de> for Secret {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        String::deserialize(deserializer).map(Self)
+    }
+}
+
 /// Pulls `.env` into the process environment for local runs. Absent file is
 /// fine; anything already set in the real environment wins.
 pub fn load_dotenv() {
@@ -64,11 +82,15 @@ pub fn load_dotenv() {
     }
 }
 
-pub fn curseforge_api_key() -> Result<Secret, Error> {
-    match std::env::var(CF_API_KEY) {
-        Ok(value) if !value.trim().is_empty() => Ok(Secret(value)),
-        _ => Err(Error::MissingEnv(CF_API_KEY)),
-    }
+/// The key as the process environment has it, `.env` included.
+///
+/// Only the environment. A key from a `.sculk` file is resolved by
+/// [`crate::config::Loaded::curseforge_api_key`], which falls back to this.
+pub fn curseforge_api_key() -> Option<Secret> {
+    std::env::var(CF_API_KEY)
+        .ok()
+        .map(Secret)
+        .filter(|key| !key.is_blank())
 }
 
 #[cfg(test)]
@@ -89,6 +111,13 @@ mod tests {
         let secret = Secret("$2a$10$abcdefghijklmnope345".to_owned());
 
         assert_eq!(secret.fingerprint(), "$2a$...e345");
+    }
+
+    #[test]
+    fn a_secret_is_blank_only_when_there_is_nothing_in_it() {
+        assert!(Secret(String::new()).is_blank());
+        assert!(Secret("  \n ".to_owned()).is_blank());
+        assert!(!Secret("hunter2".to_owned()).is_blank());
     }
 
     /// Four characters off each end of a short value is most of the value.

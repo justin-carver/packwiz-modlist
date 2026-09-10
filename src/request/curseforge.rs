@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     consts::CURSEFORGE_API,
+    env::Secret,
     error::Error,
     request::{CurseForgeId, post},
 };
@@ -62,13 +63,15 @@ pub struct ModLogo {
     pub thumbnail_url: String,
 }
 
-pub fn post_curseforge(endpoint: &str) -> Result<Request, Error> {
-    let key = crate::env::curseforge_api_key()?;
+/// The key is handed in rather than looked up here, so the one place that
+/// decides between the environment and a `.sculk` stays the one place.
+pub fn post_curseforge(endpoint: &str, key: Option<&Secret>) -> Result<Request, Error> {
+    let key = key.ok_or(Error::MissingEnv(crate::env::CF_API_KEY))?;
 
     Ok(post(format!("{CURSEFORGE_API}{endpoint}")).with_header("x-api-key", key.expose()))
 }
 
-pub fn get_curseforge_mods(ids: Vec<CurseForgeId>) -> Result<Mods, Error> {
+pub fn get_curseforge_mods(ids: Vec<CurseForgeId>, key: Option<&Secret>) -> Result<Mods, Error> {
     #[derive(Serialize, Deserialize, Debug, Clone)]
     #[serde(rename_all = "camelCase")]
     struct ResponseJson {
@@ -76,7 +79,7 @@ pub fn get_curseforge_mods(ids: Vec<CurseForgeId>) -> Result<Mods, Error> {
     }
 
     let body = serde_json::json!({ "modIds": ids, "filterPcOnly": true });
-    let response = post_curseforge("/mods")?.with_json(&body)?.send()?;
+    let response = post_curseforge("/mods", key)?.with_json(&body)?.send()?;
 
     match response.status_code {
         200 => response

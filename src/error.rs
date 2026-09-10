@@ -30,7 +30,9 @@ pub enum Error {
     Format(#[from] crate::format::FormatError),
     #[error("{0}")]
     Other(String),
-    #[error("{0} is not set -- put it in .env or export it")]
+    #[error(
+        "{0} is not set -- export it, put it in .env, or add it under [secrets] in a .sculk file"
+    )]
     MissingEnv(&'static str),
 }
 

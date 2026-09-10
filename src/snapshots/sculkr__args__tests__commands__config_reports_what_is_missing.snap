@@ -6,10 +6,17 @@ expression: rendered
   ⣿ sculkr ⣿
   Runtime Configuration
 
-  Pack root:   /home/user
-  Mods:        no *.pw.toml files found here
-  Cache:       /home/user/.packwiz-modlist.cache.json (not written yet)
-  CF_API_KEY:  not set (CurseForge mods will fail)
+  Config:      no .sculk file found (create one at /home/user/.config/sculkr/.sculk)
   Output:      stdout
   Format:      - [{NAME}]({URL}) - {DESCRIPTION}\n
   Log level:   warn
+
+┏━ ▓▒░ Modpack ░▒▓ ━━━━━━━━━━━━━━━╾──────────────┈┈┈┈┈┈┈┈┈┈┈┈
+
+  Pack root:   /home/user
+  Mods:        no *.pw.toml files found here
+  Cache:       /home/user/.packwiz-modlist.cache.json (not written yet)
+
+┏━ ▓▒░ Secrets ░▒▓ ━━━━━━━━━━━━━━━╾──────────────┈┈┈┈┈┈┈┈┈┈┈┈
+
+  CF_API_KEY:  not set (CurseForge mods will fail)

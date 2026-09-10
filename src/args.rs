@@ -1,4 +1,4 @@
-use std::{env, path::PathBuf, process::ExitCode};
+use std::{any, env, path::PathBuf, process::ExitCode};
 
 ///  All Code below relies on new clap:: 4.0+ API! (Didn't pin it... for now...)
 ///  Perhaps consider moving this into a more centralized "command" file,
@@ -71,20 +71,45 @@ pub(crate) struct Cli {
     /// A string literal with {PLACEHOLDER} holes in it, one per field the cache
     /// holds. Backslash escapes (\n, \t, \\, \{, \}) are resolved here rather
     /// than by the shell, so quote the template and write \n for a line break.
+    // Left unset rather than defaulted, so a `.sculk` value can be told apart
+    // from a flag the user actually passed. `format()` applies the default.
     #[clap(
     long,
     short = 'f',
     allow_hyphen_values = true,
-    default_value = crate::format::DEFAULT_FORMAT,
-    // clap debug-prints defaults, which would show the literal \n as \\n; the
-    // long help states it plainly instead.
-    hide_default_value = true,
     long_help = format_long_help()
   )]
-    pub(crate) format: String,
+    pub(crate) format: Option<String>,
 
     #[command(subcommand)]
     pub(crate) command: Option<Command>,
+}
+
+impl Cli {
+    /// Fills in anything the command line left unset from a `.sculk` file.
+    ///
+    /// `verbose` and `quiet` have no unset state to check -- clap counts a
+    /// missing flag as 0 and false -- so the file speaks only when neither was
+    /// passed, which is the same answer either way.
+    pub(crate) fn apply(&mut self, config: &crate::config::Config) {
+        self.path = self.path.take().or_else(|| config.path.clone());
+        self.output = self.output.take().or_else(|| config.output.clone());
+        self.format = self.format.take().or_else(|| config.format.clone());
+
+        if self.verbose == 0 {
+            self.verbose = config.verbose.unwrap_or(0);
+        }
+
+        if !self.quiet {
+            self.quiet = config.quiet.unwrap_or(false);
+        }
+    }
+
+    pub(crate) fn format(&self) -> &str {
+        self.format
+            .as_deref()
+            .unwrap_or(crate::format::DEFAULT_FORMAT)
+    }
 }
 
 #[derive(Debug, Subcommand)]
@@ -126,7 +151,7 @@ impl Verbosity {
 }
 
 fn write_fancy_header(out: &mut dyn std::io::Write, subtitle: &str) -> anyhow::Result<()> {
-    writeln!(out)?;
+    writeln!(out);
     writeln!(
         out,
         "  {} {} {}",
@@ -134,8 +159,19 @@ fn write_fancy_header(out: &mut dyn std::io::Write, subtitle: &str) -> anyhow::R
         "sculkr".bold().cyan(),
         "⣿".cyan()
     )?;
-    writeln!(out, "  {}", subtitle.dimmed())?;
-    writeln!(out)?;
+    writeln!(out, "  {}\n", subtitle.dimmed())?;
+    Ok(())
+}
+
+fn write_fancy_divider(out: &mut dyn std::io::Write, title: &str) -> anyhow::Result<()> {
+    writeln!(
+        out,
+        "{}",
+        format!(
+            "\n┏━ {} ━━━━━━━━━━━━━━━╾──────────────┈┈┈┈┈┈┈┈┈┈┈┈\n",
+            format!("▓▒░ {} ░▒▓", title).black().bold().on_bright_cyan()
+        )
+    );
     Ok(())
 }
 
@@ -146,18 +182,25 @@ fn write_fancy_header(out: &mut dyn std::io::Write, subtitle: &str) -> anyhow::R
 /// command has to say, so it is a line in the output, not a reason to bail.
 struct Runtime {
     pack_root: PathBuf,
+    /// `.sculk` files that were read, in the order they were applied.
+    config_sources: Vec<PathBuf>,
+    /// Where a global `.sculk` would go, named when there is none to report so
+    /// the answer to "where do I put one" is in the output.
+    config_home: Option<PathBuf>,
     /// Modrinth and CurseForge counts, or `None` when there is no pack to read.
     mods: Option<(usize, usize)>,
     cache: PathBuf,
     cache_entries: Option<usize>,
-    api_key: Option<String>,
+    /// The key's fingerprint and which of `.env`, the environment, or a
+    /// `.sculk` file it came from. Never the key.
+    api_key: Option<(String, crate::config::KeySource)>,
     output: Option<PathBuf>,
     format: String,
     verbosity: Verbosity,
 }
 
 impl Runtime {
-    fn gather(cli: &Cli) -> Self {
+    fn gather(cli: &Cli, loaded: &crate::config::Loaded) -> Self {
         let pack_root = crate::util::resolve_for_display(
             cli.path.clone().unwrap_or_else(|| PathBuf::from(".")),
         );
@@ -179,21 +222,27 @@ impl Runtime {
                 // same answer, and it is not a green zero.
                 .filter(|(modrinth, curseforge)| modrinth + curseforge > 0),
             pack_root,
+            config_sources: loaded.sources.clone(),
+            config_home: crate::config::global_path(),
             cache,
             cache_entries,
-            api_key: crate::env::curseforge_api_key()
-                .ok()
-                .map(|key| key.fingerprint()),
+            api_key: loaded
+                .curseforge_api_key()
+                .map(|(key, source)| (key.fingerprint(), source)),
             output: cli.output.clone(),
-            format: cli.format.clone(),
+            format: cli.format().to_owned(),
             verbosity: Verbosity::resolve(cli.verbose, cli.quiet),
         }
     }
 }
 
 /// Outputs the current runtime configuration of the program.
-pub(crate) fn config(out: &mut dyn std::io::Write, cli: &Cli) -> anyhow::Result<()> {
-    render_config(out, &Runtime::gather(cli))
+pub(crate) fn config(
+    out: &mut dyn std::io::Write,
+    cli: &Cli,
+    loaded: &crate::config::Loaded,
+) -> anyhow::Result<()> {
+    render_config(out, &Runtime::gather(cli, loaded))
 }
 
 /// Split from [`config`] so the layout can be tested without a pack, a cache,
@@ -201,6 +250,41 @@ pub(crate) fn config(out: &mut dyn std::io::Write, cli: &Cli) -> anyhow::Result<
 fn render_config(out: &mut dyn std::io::Write, rt: &Runtime) -> anyhow::Result<()> {
     write_fancy_header(out, "Runtime Configuration");
 
+    // General sculkr configs, does not need fancy_divider
+    match rt.config_sources.split_first() {
+        Some((first, rest)) => {
+            writeln!(out, "  {:<12} {}", "Config:".bold(), first.display())?;
+            // Later files override earlier ones, so all of them are listed
+            // rather than just the one that happened to win.
+            for source in rest {
+                writeln!(out, "  {:<12} {}", "", source.display())?;
+            }
+        }
+        None => writeln!(
+            out,
+            "  {:<12} {} {}",
+            "Config:".bold(),
+            format!("no {} file found", crate::config::CONFIG_FILE_NAME).yellow(),
+            match &rt.config_home {
+                Some(path) => format!("(create one at {})", path.display()).dimmed(),
+                None => "".dimmed(),
+            }
+        )?,
+    }
+    writeln!(out, "  {:<12} {}", "Output:".bold(), match &rt.output {
+        Some(path) => path.display().to_string(),
+        None => "stdout".to_owned(),
+    })?;
+    writeln!(out, "  {:<12} {}", "Format:".bold(), rt.format)?;
+    writeln!(
+        out,
+        "  {:<12} {}",
+        "Log level:".bold(),
+        rt.verbosity.to_level_filter().to_string().to_lowercase()
+    )?;
+
+    // Modpack config items
+    write_fancy_divider(out, "Modpack");
     writeln!(
         out,
         "  {:<12} {}",
@@ -239,12 +323,14 @@ fn render_config(out: &mut dyn std::io::Write, rt: &Runtime) -> anyhow::Result<(
         )?,
     }
 
+    write_fancy_divider(out, "Secrets");
     match &rt.api_key {
-        Some(fingerprint) => writeln!(
+        Some((fingerprint, source)) => writeln!(
             out,
-            "  {:<12} {}",
+            "  {:<12} {} {}",
             format!("{}:", crate::env::CF_API_KEY).bold(),
-            fingerprint.green()
+            fingerprint.green(),
+            format!("(from {source})").dimmed()
         )?,
         None => writeln!(
             out,
@@ -255,19 +341,7 @@ fn render_config(out: &mut dyn std::io::Write, rt: &Runtime) -> anyhow::Result<(
         )?,
     }
 
-    writeln!(out, "  {:<12} {}", "Output:".bold(), match &rt.output {
-        Some(path) => path.display().to_string(),
-        None => "stdout".to_owned(),
-    })?;
-    writeln!(out, "  {:<12} {}", "Format:".bold(), rt.format)?;
-    writeln!(
-        out,
-        "  {:<12} {}",
-        "Log level:".bold(),
-        rt.verbosity.to_level_filter().to_string().to_lowercase()
-    )?;
     writeln!(out)?;
-
     Ok(())
 }
 
@@ -460,10 +534,20 @@ mod tests {
         fn config_reports_a_working_setup() -> anyhow::Result<()> {
             let rendered = render(&Runtime {
                 pack_root: PathBuf::from("/home/user/modpack"),
+                config_sources: vec![
+                    PathBuf::from("/home/user/.config/sculkr/.sculk"),
+                    PathBuf::from("/home/user/modpack/.sculk"),
+                ],
+                config_home: Some(PathBuf::from("/home/user/.config/sculkr/.sculk")),
                 mods: Some((32, 15)),
                 cache: PathBuf::from("/home/user/modpack/.packwiz-modlist.cache.json"),
                 cache_entries: Some(38),
-                api_key: Some("$2a$...e345".to_owned()),
+                api_key: Some((
+                    "$2a$...e345".to_owned(),
+                    crate::config::KeySource::Config(PathBuf::from(
+                        "/home/user/.config/sculkr/.sculk",
+                    )),
+                )),
                 output: Some(PathBuf::from("modlist.md")),
                 format: crate::format::DEFAULT_FORMAT.to_owned(),
                 verbosity: Verbosity::Info,
@@ -480,6 +564,8 @@ mod tests {
         fn config_reports_what_is_missing() -> anyhow::Result<()> {
             let rendered = render(&Runtime {
                 pack_root: PathBuf::from("/home/user"),
+                config_sources: Vec::new(),
+                config_home: Some(PathBuf::from("/home/user/.config/sculkr/.sculk")),
                 mods: None,
                 cache: PathBuf::from("/home/user/.packwiz-modlist.cache.json"),
                 cache_entries: None,

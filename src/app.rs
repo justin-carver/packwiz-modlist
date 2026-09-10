@@ -9,6 +9,7 @@ use crate::{
     Cache, Error, Mod,
     args::Cli,
     cache::CacheId,
+    env::Secret,
     format::Formatter,
     get_curseforge_mods, get_modrinth_mods,
     parser::{ParsedCurseForgeId, ParsedModrinthId, Parser},
@@ -33,10 +34,14 @@ pub struct App {
     cache: RefCell<Cache>,
     modrinth_mods: Vec<ParsedModrinthId>,
     curseforge_mods: Vec<ParsedCurseForgeId>,
+    // TODO: `None` for cf_api_key is only a problem if the pack turns
+    // out to hold CurseForge mods that are not already cached...
+    /// Resolved once at startup.
+    cf_api_key: Option<Secret>,
 }
 
 impl App {
-    pub fn new<P>(cache: Cache, parser: P) -> Self
+    pub fn new<P>(cache: Cache, parser: P, cf_api_key: Option<Secret>) -> Self
     where
         P: Parser,
     {
@@ -46,6 +51,7 @@ impl App {
             cache: RefCell::new(cache),
             modrinth_mods,
             curseforge_mods,
+            cf_api_key,
         }
     }
 
@@ -104,7 +110,7 @@ impl App {
         }
 
         if !cf_mods_ids.is_empty() {
-            let fetched = get_curseforge_mods(cf_mods_ids)?;
+            let fetched = get_curseforge_mods(cf_mods_ids, self.cf_api_key.as_ref())?;
             let mut returned = HashSet::<String>::with_capacity(fetched.len());
 
             for m in fetched.into_iter().map(Mod::from) {
@@ -148,7 +154,7 @@ impl App {
     pub fn run(&self, cli: Cli) -> Result<(), Error> {
         // Parsed before anything is fetched, so a typo in the template costs a
         // message instead of a round of API calls.
-        let formatter = Formatter::new(&cli.format)?;
+        let formatter = Formatter::new(cli.format())?;
         let mods = self.sorted_mods()?;
 
         // Treat `--output ""` the same as not passing any content to arg, i.e. skip this.
