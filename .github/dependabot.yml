@@ -1,0 +1,23 @@
+version: 2
+
+updates:
+  # Both workflows pin actions by major tag, which never moves on its own.
+  # Without this, a stale action is only noticed when it fails, and for
+  # tagged_release.yml that means failing mid-publish.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+    # Patch and minor bumps arrive as one PR; a major gets its own, since
+    # that is the one that can move the MSRV.
+    groups:
+      cargo-minor:
+        update-types: [minor, patch]
