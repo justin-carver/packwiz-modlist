@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.2.0] - 2026-09-10
 
+## [0.2.0] - 2026-09-10
+
 ### Added
 
 - The `.sculk` config file (`src/config.rs`): flat TOML file, every key is optional, one key per flag (`path`, `output`, `format`, `verbose`, `quiet`). This will make future ideas easier to manage once the pack reaches `v1.0.0`.
@@ -92,6 +94,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- next-url -->
 [Unreleased]: https://github.com/justin-carver/sculkr/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/justin-carver/sculkr/compare/v0.2.0...v0.2.0
 
 [0.2.0]: https://github.com/justin-carver/sculkr/compare/v0.1.4...v0.2.0
 [0.1.4]: https://github.com/justin-carver/sculkr/compare/v0.1.3...v0.1.4
