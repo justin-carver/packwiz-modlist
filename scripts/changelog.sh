@@ -20,8 +20,6 @@ cd "$(git rev-parse --show-toplevel)"
 tag="v${version}"
 changelog="CHANGELOG.md"
 remote="https://github.com/justin-carver/sculkr"
-# 0.1.1 predates the oldest tag still in the repo, so its compare link is anchored by hand.
-oldest_anchor="v0.1.0"
 
 if ! command -v git-cliff >/dev/null 2>&1; then
     echo "git-cliff is not installed. cargo install git-cliff" >&2
@@ -64,16 +62,33 @@ awk -v section="$section" '
 # chain stays correct no matter how many releases have accumulated.
 mapfile -t versions < <(sed -n 's/^## \[\([0-9][^]]*\)\].*/\1/p' "$tmp")
 
+# 0.1.0 and 0.1.1 were never tagged, so a compare range against them 404s.
+# The version being released is not tagged yet either, since cargo-release runs
+# this before it tags.
+exists() {
+    [[ "$1" == "$tag" ]] || git rev-parse -q --verify "refs/tags/$1" >/dev/null
+}
+
 {
     sed '/^<!-- next-url -->$/q' "$tmp"
     echo "[Unreleased]: ${remote}/compare/${tag}...HEAD"
     for i in "${!versions[@]}"; do
+        current="v${versions[i]}"
+
+        # No tag, no link. The heading then renders as plain text, which is
+        # honest, where a dead link is not.
+        exists "$current" || continue
+
+        previous=""
         if ((i + 1 < ${#versions[@]})); then
             previous="v${versions[i + 1]}"
-        else
-            previous="$oldest_anchor"
         fi
-        echo "[${versions[i]}]: ${remote}/compare/${previous}...v${versions[i]}"
+
+        if [[ -n "$previous" ]] && exists "$previous"; then
+            echo "[${versions[i]}]: ${remote}/compare/${previous}...${current}"
+        else
+            echo "[${versions[i]}]: ${remote}/tree/${current}"
+        fi
     done
 } >"$changelog"
 
