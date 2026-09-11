@@ -171,7 +171,7 @@ impl App {
                         cache.set_mod(id, m.clone());
                         mods.push(m);
                     }
-                    // An id we ne% asked for should not take the whole run down.
+                    // An id we never asked for should not take the whole run down.
                     None => {
                         log::warn!(
                             "Modrinth returned unrequested project \"{}\"; ignoring",
