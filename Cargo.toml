@@ -11,7 +11,19 @@ keywords = ["packwiz", "modpack", "minecraft", "curseforge", "modlist"]
 categories = ["command-line-utilities"]
 repository = "https://github.com/justin-carver/sculkr"
 build = "build.rs"
-exclude = ["./github", "/tests", "*.png"]
+# Patterns are matched gitignore-style against the packaged paths, so a leading
+# "./" matches nothing. Everything here is development tooling that a crates.io
+# consumer never runs.
+exclude = [
+    ".github/",
+    ".gitattributes",
+    ".gitignore",
+    ".rustfmt.toml",
+    "cliff.toml",
+    "justfile",
+    "scripts/",
+    "*.png",
+]
 
 # We'll rely on cargo-release
 [package.metadata.release]
