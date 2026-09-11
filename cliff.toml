@@ -10,20 +10,18 @@
 # generated section carries neither.
 header = ""
 footer = ""
-# Whitespace is load-bearing here: trimming would flatten the two-space indent
-# that puts a commit body underneath its bullet.
 trim = false
 
+# One line per commit, subject only, the way Keep a Changelog entries are meant
+# to read. Commit bodies are deliberately dropped: they are written for someone
+# reading `git log`, and splicing them in produced either page-long blocks or,
+# once bodies became Markdown lists, a nested list under every bullet.
 body = """
 ## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d", timezone="America/Chicago") }}
 {% for group, commits in commits | group_by(attribute="group") %}
 ### {{ group | split(pat="@") | last }}
 {% for commit in commits %}
-- {% if commit.breaking %}**Breaking:** {% endif %}{{ commit.message | upper_first }}
-{%- if commit.body %}
-
-  {{ commit.body | trim | replace(from="\n", to="\n  ") }}
-{%- endif %}
+- {% if commit.breaking %}**Breaking:** {% endif %}{{ commit.message | split(pat="\n") | first | upper_first | trim }}
 {%- endfor %}
 {% endfor %}"""
 
@@ -58,12 +56,13 @@ commit_parsers = [
   { message = "^[Mm]erge (pull request|branch|remote-tracking)", skip = true },
 
   { message = "^feat", group = "0@Added" },
-  { message = "^(refactor|perf|style|docs)", group = "1@Changed" },
+  { message = "^(refactor|perf|docs)", group = "1@Changed" },
   { message = "^deprecat", group = "2@Deprecated" },
   { message = "^remove", group = "3@Removed" },
   { message = "^fix", group = "4@Fixed" },
   { message = "^sec(urity)?", group = "5@Security" },
 
-  # Housekeeping that carries no user-visible change.
-  { message = "^(chore|ci|build|test)", skip = true },
+  # Housekeeping that carries no user-visible change. `style` belongs here
+  # rather than under Changed: it means formatting with no semantic effect.
+  { message = "^(chore|ci|build|test|style)", skip = true },
 ]
