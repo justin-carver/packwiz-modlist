@@ -13,13 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Align the configured edition with the crate
-
-  - Set `edition` to `2024` in `.rustfmt.toml`, matching `Cargo.toml`.
 - List the current feature set
-
-  - Replace the `Current Features` prose with eight bullets under a `Features` heading.
-  - Repoint the `Formatting` link from `#Formatting` to `#formatting`.
 
 ## [0.2.2] - 2026-09-10
 
@@ -27,51 +21,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Implemented the force `-f, --force` arg to forcibly overwrite specified output files
 - Scaffolding helper functions and schemas for packwiz data exports
-
-  Added `parser/export.rs`: focuses on preparing the `Document` schema to map export data fields to generated pack.toml, mod.pw.toml, and index.toml data to.
-  
-  Added `parser/pack.rs`: reads packwiz's `pack.toml` file and maps metadata to serde derived fields on custom public structs.
-  
-  Updated `parser/mod.rs` to accept new `export` and `pack` modules.
 - Resolve the pack from its root and export it as JSON
-
-  sculkr now works on a whole modpack rather than a single directory of
-  `*.pw.toml` files.
-  
-  The pack root is wherever `pack.toml` is, found by searching upward from
-  `--path`, so the flag can point anywhere inside a pack and the same root is used
-  for content discovery, `.sculk` lookup and `sculkr config`. Content itself comes
-  from packwiz's own `index.toml`, which means `mods/`, `resourcepacks/`,
-  `shaderpacks/` and `datapacks/` are all read together, and a folder packwiz adds
-  later needs no change here. Every record carries the folder it came from. A
-  directory with no index still falls back to being scanned on its own.
-  
-  `--json` emits the whole pack as one document: its `pack.toml` metadata, every
-  `*.pw.toml` record, the project data fetched from Modrinth and CurseForge, and
-  the resolved settings. Keys are snake_case in a fixed order, and a
-  `schema_version` is carried so consumers can branch. Credentials are excluded by
-  construction: the exported settings are an allowlist rather than a serialized
-  `Config`, so a `[secrets]` key cannot reach the file. `--json` can also be set in
-  `.sculk`, like every other global flag.
-  
-  Pointing `--path` at a mods directory now lists the entire pack rather than that
-  one folder, and a `.sculk` sitting beside `pack.toml` is now found where it was
-  previously ignored.
-  
-  Log output is sent to to stderr, so a modlist or JSON document can be piped into
-  another tool without warnings landing in the middle of it. `--output` also no
-  longer reports an existing-file conflict when no `--output` was passed at all!
-  
-  Soon, I'll start implementing shaderpacks, resourcepack, and datapack tracking
-  to pair with this new pack root format. Just needed to work out the kinks
-  in the `--json` data format. Need to fix some mod count reporting + config
-  changes now that the pack root has been shifted out of `mods/`.
 
 ### Changed
 
 - Updated .gitignore to add `test/` folder for local development
-
-  removed older `/test_packwiz` folder left behidn from `packwiz-modlist` fork.
 
 ## [0.2.1] - 2026-09-09
 
@@ -166,5 +120,4 @@ _Maintenance release. No user-facing changes; see the commit log for build, CI a
 [0.2.0]: https://github.com/justin-carver/sculkr/compare/v0.1.4...v0.2.0
 [0.1.4]: https://github.com/justin-carver/sculkr/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/justin-carver/sculkr/compare/v0.1.2...v0.1.3
-[0.1.2]: https://github.com/justin-carver/sculkr/compare/v0.1.1...v0.1.2
-[0.1.1]: https://github.com/justin-carver/sculkr/compare/v0.1.0...v0.1.1
+[0.1.2]: https://github.com/justin-carver/sculkr/tree/v0.1.2
