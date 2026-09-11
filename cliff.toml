@@ -61,6 +61,9 @@ commit_parsers = [
   { message = "^remove", group = "3@Removed" },
   { message = "^fix", group = "4@Fixed" },
   { message = "^sec(urity)?", group = "5@Security" },
+  # A security-scoped commit of any type, e.g. `ci(security)`. Sits below the
+  # rules above so `feat(security)` and `fix(security)` keep their own sections.
+  { message = "^\\w+\\(security\\)", group = "5@Security" },
 
   # Housekeeping that carries no user-visible change. `style` belongs here
   # rather than under Changed: it means formatting with no semantic effect.
