@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- next-header -->
 
+## [0.2.4] - 2026-09-10
+
+### Changed
+
+- Regenerate the 0.2.2 and 0.2.3 sections
+- Point local checks at the justfile
+- Correct the commit and changelog conventions
+- Drop the removed PACK_ROOT variable
+- Add a CODEOWNERS file
+- Add a security policy
+
+### Fixed
+
+- Render entries as single lines and skip style commits
+- Omit link references for untagged versions
+- Route security-scoped commits to the Security section
+- Exclude development tooling from the published crate
+- Stop the gitmoji preprocessors mangling Rust paths
+
 ## [0.2.3] - 2026-09-10
 
 ### Changed
@@ -113,7 +132,8 @@ _Maintenance release. No user-facing changes; see the commit log for build, CI a
 ## [0.1.1] - 2026-09-08
 
 <!-- next-url -->
-[Unreleased]: https://github.com/justin-carver/sculkr/compare/v0.2.3...HEAD
+[Unreleased]: https://github.com/justin-carver/sculkr/compare/v0.2.4...HEAD
+[0.2.4]: https://github.com/justin-carver/sculkr/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/justin-carver/sculkr/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/justin-carver/sculkr/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/justin-carver/sculkr/compare/v0.2.0...v0.2.1
