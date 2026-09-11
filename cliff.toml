@@ -37,11 +37,12 @@ sort_commits = "oldest"
 protect_breaking_commits = true
 
 commit_preprocessors = [
-  # Subjects are written gitmoji-style (`feat(config): :sparkles: ...`). The
-  # shortcode is decoration for the git log, not for the changelog.
-  { pattern = " *:[a-z0-9_+-]+: *", replace = " " },
-  # The same, for commits that used the literal emoji instead of the shortcode.
-  { pattern = " *[\\x{1F300}-\\x{1FAFF}\\x{2600}-\\x{27BF}]+ *", replace = " " },
+  # Commits predating the no-gitmoji rule carry a `:shortcode:` or a literal
+  # emoji between the type and the description. Both patterns are anchored to
+  # that one position: an unanchored `:[a-z0-9_+-]+:` also matches the middle of
+  # a Rust path, turning `use std::fmt::Display` into `use std: :Display`.
+  { pattern = "^(\\w+(\\([^)]*\\))?!?: *):[a-z0-9_+-]+: *", replace = "${1}" },
+  { pattern = "^(\\w+(\\([^)]*\\))?!?: *)[\\x{1F300}-\\x{1FAFF}\\x{2600}-\\x{27BF}]+ *", replace = "${1}" },
   # Issue and PR numbers become links.
   { pattern = "\\(#([0-9]+)\\)", replace = "([#${1}](https://github.com/justin-carver/sculkr/issues/${1}))" },
 ]
