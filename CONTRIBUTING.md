@@ -112,25 +112,33 @@ Nothing is written into the file by hand any more.
 
 Two things follow from that:
 
-- **The subject line becomes the bullet.** Write it so it reads well on a
-  release page, not just in `git log`. A `:gitmoji:` shortcode after the type is
-  fine; it gets stripped on the way in.
-- **The commit body becomes the prose under that bullet.** This is where the
-  detail that used to go into `CHANGELOG.md` belongs. It is optional, but a
-  release note is only as good as the body you wrote a month earlier.
+- **The subject line becomes the bullet, and only the subject line.** Write it so
+  it reads well on a release page, not just in `git log`. Keep a Changelog
+  entries are one line each, so the body is never rendered into the changelog.
+- **The body is for the reader of `git log`.** Write it as a Markdown bullet
+  list, in the imperative mood, with commands, files and flags in backticks.
+  State what the commit does rather than why it was done that way.
+
+Do not put a gitmoji in the subject. The shortcode is not part of the
+Conventional Commits spec; `cliff.toml` still strips one on the way in so that
+commits predating this rule render correctly.
 
 ```
-feat(export): :sparkles: add JSON export for modlists
+feat(export): add JSON export for modlists
 
-Adds a --format json option that emits a machine-readable modlist.
-Useful for piping into jq or feeding a pack dashboard.
+- Add a `--json` flag that emits the whole pack as one document.
+- Carry a `schema_version` so consumers can branch on the shape.
 ```
 
 Types map onto [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
-sections: `feat` to Added, `fix` to Fixed, `refactor`/`perf`/`style`/`docs` to
-Changed, `deprecate` to Deprecated, `remove` to Removed, `sec` to Security.
-`chore`, `ci`, `build` and `test` are dropped, as are merge and release commits.
-The mapping lives in [`cliff.toml`](cliff.toml).
+sections: `feat` to Added, `fix` to Fixed, `refactor`/`perf`/`docs` to Changed,
+`deprecate` to Deprecated, `remove` to Removed, `sec` to Security. A commit of
+any type carrying a `security` scope, such as `ci(security)`, also lands in
+Security. `chore`, `ci`, `build`, `test` and `style` are dropped, as are merge
+and release commits. The mapping lives in [`cliff.toml`](cliff.toml).
+
+A release whose commits were all dropped is a maintenance release, and
+`scripts/changelog.sh` writes it a note saying so rather than an empty section.
 
 To see what the next release would look like at any point:
 
