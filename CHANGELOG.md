@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- next-header -->
 
+## [0.2.3] - 2026-09-10
+
+### Changed
+
+- Align the configured edition with the crate
+
+  - Set `edition` to `2024` in `.rustfmt.toml`, matching `Cargo.toml`.
+- List the current feature set
+
+  - Replace the `Current Features` prose with eight bullets under a `Features` heading.
+  - Repoint the `Formatting` link from `#Formatting` to `#formatting`.
+
 ## [0.2.2] - 2026-09-10
 
 ### Added
@@ -147,7 +159,8 @@ _Maintenance release. No user-facing changes; see the commit log for build, CI a
 ## [0.1.1] - 2026-09-08
 
 <!-- next-url -->
-[Unreleased]: https://github.com/justin-carver/sculkr/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/justin-carver/sculkr/compare/v0.2.3...HEAD
+[0.2.3]: https://github.com/justin-carver/sculkr/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/justin-carver/sculkr/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/justin-carver/sculkr/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/justin-carver/sculkr/compare/v0.1.4...v0.2.0
