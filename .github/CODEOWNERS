@@ -1,0 +1,4 @@
+# Branch protection on `main` requires a code owner review. Without this file no
+# owner is ever assigned, so that requirement matches nothing.
+
+* @justin-carver
