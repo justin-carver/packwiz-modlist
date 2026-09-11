@@ -38,10 +38,13 @@ cargo build
 The minimum supported Rust version is **1.85** (edition 2024), declared as
 `rust-version` in `Cargo.toml`.
 
-To run against a real pack, copy `.env.example` to `.env` and point `PACK_ROOT`
-at a directory of `*.pw.toml` files. See
-[Configuration](README.md#configuration) for the variables and the
-single-quotes-around-`CF_API_KEY` trap.
+To run against a real pack, point `--path` at it: `cargo run -- -p ~/modpack`.
+The flag accepts any path inside a pack, since the root is found by searching
+upward for `pack.toml`.
+
+A pack holding CurseForge mods also needs a key. Copy `.env.example` to `.env`
+and fill in `CF_API_KEY`. See [Configuration](README.md#configuration) for the
+precedence rules and the single-quotes-around-`CF_API_KEY` trap.
 
 ## Before you open a PR
 
