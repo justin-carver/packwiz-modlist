@@ -49,15 +49,30 @@ CI runs these on every push and pull request, so running them locally saves a
 round trip:
 
 ```sh
-cargo +nightly fmt --all                                       # format
-cargo clippy --locked --all-targets --all-features -- -D warnings
-cargo nextest run --locked --all-features                      # tests
-cargo test --locked --all-features --doc                       # doctests
-RUSTDOCFLAGS="-D warnings" cargo doc --locked --no-deps --all-features
+just             # fmt, clippy, docs, tests -- everything CI's lint and test jobs run
+just pre-push    # the above plus the MSRV check
 ```
 
-`cargo nextest` comes from [cargo-nextest](https://nexte.st/); plain
-`cargo test` works fine locally if you'd rather not install it.
+The [`justfile`](justfile) is the single source of truth for what CI checks, and
+pins the same toolchains, so a green `just` means a green pipeline. Individual
+recipes are available too:
+
+| Recipe | What it runs |
+| --- | --- |
+| `just fmt` | `cargo +nightly fmt --all --check` |
+| `just fmt-fix` | The same, rewriting files instead of reporting |
+| `just lint` | `cargo +stable clippy --locked --all-targets --all-features -- -D warnings` |
+| `just docs` | `cargo +stable doc --locked --no-deps --all-features` under `RUSTDOCFLAGS: -D warnings` |
+| `just test` | `cargo +stable nextest run --locked --all-features` |
+| `just msrv` | `cargo +1.88.0 check --locked --all-targets --all-features` |
+
+`just` comes from [casey/just](https://github.com/casey/just) and `cargo nextest`
+from [cargo-nextest](https://nexte.st/). Plain `cargo test` works fine locally if
+you'd rather not install nextest.
+
+Every recipe clears `RUSTFLAGS`. A personal `~/.cargo/config.toml` carrying
+nightly-only `-Z` flags otherwise makes each `+stable` and `+1.88.0` invocation
+fail before it compiles anything.
 
 Formatting is nightly-only on purpose. `.rustfmt.toml` sets a handful of
 nightly options (`group_imports`, `imports_granularity`, `wrap_comments`, and
