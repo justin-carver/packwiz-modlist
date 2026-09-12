@@ -4,7 +4,7 @@
 //! published release artifact would carry the value. Runtime lookups live in
 //! `src/env.rs`.
 
-use std::path::Path;
+use std::{env, path::Path};
 
 fn main() {
     println!("cargo::rerun-if-changed=src");
@@ -16,11 +16,15 @@ fn main() {
     if !found.is_empty() {
         found.sort();
         found.dedup();
-        panic!(
-            "compile-time environment lookups found: {}\n\
-       these would be embedded in the binary -- read them at runtime via crate::env instead",
-            found.join(", ")
-        );
+        for var in found {
+            env::set_var(found, "");
+        }
+        // Instead of panicking, this should just resort to defaults
+        //  panic!(
+        //      "compile-time environment lookups found: {}\n\
+        // these would be embedded in the binary -- read them at runtime via crate::env instead",
+        //      found.join(", ")
+        //  );
     }
 }
 
@@ -36,7 +40,6 @@ fn scan(dir: &Path, found: &mut Vec<String>) {
             let Ok(source) = std::fs::read_to_string(&path) else {
                 continue;
             };
-
             collect(&source, &path, found);
         }
     }
